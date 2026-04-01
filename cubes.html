@@ -173,6 +173,91 @@
             background: linear-gradient(90deg, transparent, rgba(212,165,32,0.4), transparent);
         }
 
+        /* ── Settings / Bot API panel ─────────────────────────────────────────── */
+        #settings-panel {
+            display: none; position: fixed; inset: 0; z-index: 300;
+            background: rgba(8,5,18,0.92); backdrop-filter: blur(12px);
+            justify-content: center; align-items: flex-start;
+            padding: 32px 16px; overflow-y: auto;
+        }
+        #settings-panel.show { display: flex; }
+        #settings-inner {
+            width: 100%; max-width: 600px;
+            background: linear-gradient(135deg, #1e1835, #16112a);
+            border: 1px solid rgba(255,255,255,0.09); border-radius: 18px;
+            padding: 32px 36px; color: #fff; position: relative;
+        }
+        #settings-close {
+            position: absolute; top: 16px; right: 18px;
+            background: none; border: none; color: #776699;
+            font-size: 22px; cursor: pointer; line-height: 1;
+        }
+        #settings-close:hover { color: #fff; }
+        .settings-title {
+            font-family: 'Fredoka', sans-serif; font-size: 26px;
+            margin-bottom: 6px; color: #fff;
+        }
+        .settings-sub { font-size: 13px; color: #665588; margin-bottom: 28px; }
+        .api-section-title {
+            font-family: 'Fredoka', sans-serif; font-size: 18px; color: #D4A520;
+            margin: 24px 0 10px; display: flex; align-items: center; gap: 10px;
+        }
+        .badge-exp {
+            font-size: 9px; font-weight: 800; background: #D4A520; color: #000;
+            padding: 2px 7px; border-radius: 5px; letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .api-desc { font-size: 13px; color: #9988bb; line-height: 1.7; margin-bottom: 16px; }
+        .api-code-block {
+            background: #0d0a1a; border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px; padding: 14px 16px; font-family: monospace;
+            font-size: 12px; color: #aaffcc; line-height: 1.6;
+            white-space: pre; overflow-x: auto; margin-bottom: 10px; position: relative;
+        }
+        .copy-btn {
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+            color: #998; font-size: 10px; padding: 3px 9px; border-radius: 5px;
+            cursor: pointer; font-family: 'Inter', sans-serif;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+        .lang-tab-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .lang-tab {
+            font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 7px;
+            cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04); color: #776699;
+        }
+        .lang-tab.active { background: rgba(212,165,32,0.18); border-color: rgba(212,165,32,0.4); color: #D4A520; }
+        .lang-panel { display: none; } .lang-panel.active { display: block; }
+        .api-event-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .api-event-table th { text-align: left; font-size: 11px; color: #554488; font-weight: 600;
+            padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .api-event-table td { font-size: 12px; padding: 6px 8px; color: #9988bb;
+            border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: top; }
+        .api-event-table td:first-child { color: #aaffcc; font-family: monospace; white-space: nowrap; }
+        .bot-room-creator {
+            background: rgba(212,165,32,0.06); border: 1px solid rgba(212,165,32,0.2);
+            border-radius: 12px; padding: 18px 20px; margin-top: 20px;
+        }
+        .bot-room-creator h4 { font-family: 'Fredoka', sans-serif; font-size: 17px; margin-bottom: 12px; }
+        .opp-select-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .opp-btn {
+            font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px;
+            cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04); color: #776699;
+        }
+        .opp-btn.active { background: rgba(212,165,32,0.18); border-color: rgba(212,165,32,0.45); color: #D4A520; }
+        #bot-room-result {
+            display: none; margin-top: 12px;
+            background: rgba(0,0,0,0.3); border-radius: 10px; padding: 14px 16px;
+        }
+        #bot-room-result p { font-size: 12px; color: #9988bb; margin-bottom: 6px; }
+        #bot-room-code-display {
+            font-family: 'Fredoka', monospace; font-size: 34px; letter-spacing: 9px;
+            color: #D4A520; cursor: pointer; display: inline-block;
+        }
+        #bot-room-status { font-size: 12px; color: #55cc77; margin-top: 8px; min-height: 18px; }
+
         /* ── Online mode UI ───────────────────────────────────────────────────── */
         .online-status {
             font-size: 13.5px; color: #9988bb; text-align: center;
@@ -485,6 +570,172 @@
 
     <div id="online-badge">&#9679; Online</div>
 
+    <!-- ═══ SETTINGS / BOT API PANEL ═══ -->
+    <div id="settings-panel">
+        <div id="settings-inner">
+            <button id="settings-close">&#10005;</button>
+            <div class="settings-title">&#9881; Developer Settings</div>
+            <div class="settings-sub">Experimental features for developers and bot builders</div>
+
+            <!-- Bot API section -->
+            <div class="api-section-title">
+                Bot API <span class="badge-exp">Experimental</span>
+            </div>
+            <p class="api-desc">
+                Connect your own bot script to play against humans, built-in AI, or other bots.
+                The server is authoritative in bot rooms — it validates every move and returns
+                the full board state + legal moves after each turn, so your bot doesn't need to
+                implement any game rules.
+            </p>
+
+            <!-- Server URL -->
+            <div style="margin-bottom:16px;">
+                <div style="font-size:11px;color:#554488;margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;">Server URL</div>
+                <div class="api-code-block" style="font-size:13px;padding:10px 14px;" id="server-url-display">https://cubicup.abe-ben.dev<button class="copy-btn" onclick="copyText('cubicup.abe-ben.dev')">copy</button></div>
+            </div>
+
+            <!-- Code examples -->
+            <div style="font-size:13px;color:#9988bb;margin-bottom:8px;">Quickstart example:</div>
+            <div class="lang-tab-row">
+                <div class="lang-tab active" onclick="switchLang('py')">Python</div>
+                <div class="lang-tab" onclick="switchLang('js')">JavaScript</div>
+            </div>
+
+            <div id="lang-py" class="lang-panel active">
+                <div class="api-code-block"><button class="copy-btn" onclick="copyCode('py')">copy</button><span id="code-py"># pip install "python-socketio[client]"
+import socketio, random
+
+sio = socketio.Client()
+
+@sio.event
+def connect():
+    sio.emit('bot-register', {'name': 'MyBot'})
+    # opponent: 'ai:easy' | 'ai:medium' | 'ai:hard' | 'human' | 'bot'
+    sio.emit('create-bot-room', {'opponent': 'ai:hard'})
+
+@sio.on('room-created')
+def on_room(data):
+    print(f"Room created: {data['code']}  (share to let another bot join)")
+
+@sio.on('game-start')
+def on_start(data):
+    print(f"Playing as {data['color']}")
+    if data['state']['your_turn']:
+        make_move(data['state'])
+
+@sio.on('opponent-move')
+def on_opp(data):
+    if data.get('game_over'):
+        result = data['game_over']
+        print(f"Game over: {result['result']}  ({result['total_moves']} moves)")
+        return
+    if data['state']['your_turn']:
+        make_move(data['state'])
+
+@sio.on('move-ack')
+def on_ack(data):
+    if data.get('game_over'):
+        result = data['game_over']
+        print(f"Game over: {result['result']}  ({result['total_moves']} moves)")
+
+def make_move(state):
+    move = random.choice(state['legal_moves'])  # ← your logic here
+    sio.emit('move', {'move': move})
+
+sio.connect('https://cubicup.abe-ben.dev')
+sio.wait()</span></div>
+            </div>
+
+            <div id="lang-js" class="lang-panel">
+                <div class="api-code-block"><button class="copy-btn" onclick="copyCode('js')">copy</button><span id="code-js">// npm install socket.io-client
+const { io } = require('socket.io-client');
+
+const socket = io('https://cubicup.abe-ben.dev');
+
+socket.on('connect', () => {
+    socket.emit('bot-register', { name: 'MyBot' });
+    // opponent: 'ai:easy' | 'ai:medium' | 'ai:hard' | 'human' | 'bot'
+    socket.emit('create-bot-room', { opponent: 'ai:hard' });
+});
+
+socket.on('room-created', data => {
+    console.log(`Room: ${data.code}  (share to let another bot join)`);
+});
+
+socket.on('game-start', data => {
+    console.log(`Playing as ${data.color}`);
+    if (data.state.your_turn) makeMove(data.state);
+});
+
+socket.on('opponent-move', data => {
+    if (data.game_over) {
+        console.log(`Game over: ${data.game_over.result} (${data.game_over.total_moves} moves)`);
+        return;
+    }
+    if (data.state.your_turn) makeMove(data.state);
+});
+
+socket.on('move-ack', data => {
+    if (data.game_over)
+        console.log(`Game over: ${data.game_over.result}`);
+});
+
+function makeMove(state) {
+    const moves = state.legal_moves;
+    const move  = moves[Math.floor(Math.random() * moves.length)]; // ← your logic
+    socket.emit('move', { move });
+}</span></div>
+            </div>
+
+            <!-- Event reference -->
+            <div class="api-section-title" style="font-size:15px;margin-top:22px;color:#9988bb;">Event Reference</div>
+            <table class="api-event-table">
+                <tr><th>You emit</th><th>Payload</th><th>Description</th></tr>
+                <tr><td>bot-register</td><td>{ name }</td><td>Identify as a bot (optional but recommended)</td></tr>
+                <tr><td>create-bot-room</td><td>{ opponent }</td><td>'ai:easy/medium/hard', 'human', or 'bot'</td></tr>
+                <tr><td>join-bot-room</td><td>{ code }</td><td>Join an existing bot room by code</td></tr>
+                <tr><td>move</td><td>{ move: "x,y,z" }</td><td>Play a move (server validates)</td></tr>
+                <tr><td>request-state</td><td>—</td><td>Get current state snapshot anytime</td></tr>
+                <tr><td>spectate</td><td>{ code }</td><td>Watch a bot room without playing</td></tr>
+            </table>
+            <table class="api-event-table">
+                <tr><th>You receive</th><th>Key fields</th><th>Description</th></tr>
+                <tr><td>game-start</td><td>color, state</td><td>Game is ready, contains full state</td></tr>
+                <tr><td>move-ack</td><td>state, game_over?</td><td>Your move was accepted</td></tr>
+                <tr><td>opponent-move</td><td>move, state, game_over?</td><td>Opponent played</td></tr>
+                <tr><td>move-error</td><td>string</td><td>Move rejected (illegal or wrong turn)</td></tr>
+                <tr><td>spectator-update</td><td>event, state</td><td>Live updates when spectating</td></tr>
+            </table>
+            <div style="font-size:12px;color:#554488;margin-bottom:20px;">
+                <strong style="color:#776699">state.legal_moves</strong> — always up-to-date list of valid moves.
+                <strong style="color:#776699">state.your_turn</strong> — true when it's your turn.
+                <strong style="color:#776699">state.terminal</strong> — null until game ends, then "yellow"/"blue"/"draw".
+            </div>
+
+            <!-- Create Bot Room widget -->
+            <div class="bot-room-creator">
+                <h4>&#9654; Create a Bot Room</h4>
+                <p style="font-size:12px;color:#776699;margin-bottom:10px;">Select opponent for your bot, get a room code, then connect your script.</p>
+                <div class="opp-select-row">
+                    <div class="opp-btn active" data-opp="ai:easy">AI Easy</div>
+                    <div class="opp-btn" data-opp="ai:medium">AI Medium</div>
+                    <div class="opp-btn" data-opp="ai:hard">AI Hard</div>
+                    <div class="opp-btn" data-opp="human">vs Human</div>
+                    <div class="opp-btn" data-opp="bot">vs Bot</div>
+                </div>
+                <button class="menu-btn primary" id="btn-create-bot-room" style="width:100%;margin:0;">
+                    Generate Room Code
+                </button>
+                <div id="bot-room-result">
+                    <p>Share this code with your bot script:</p>
+                    <div id="bot-room-code-display" title="click to copy">-----</div>
+                    <div id="bot-room-status"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <div id="topbar">
         <div class="player-panel yellow active" id="panel-yellow">
             <span class="ci yellow"></span>
@@ -506,7 +757,8 @@
         </span>
         <button class="btn" id="btn-game-menu">Main Menu</button>
         <button class="btn" id="btn-new">Restart</button>
-        <button class="btn" id="btn-view">▲ Front View</button>
+        <button class="btn" id="btn-view">&#9650; Front View</button>
+        <button class="btn" id="btn-settings" title="Developer / Bot API">&#9881;</button>
     </div>
 
     <div id="overlay">
@@ -1747,6 +1999,90 @@
         // Init
         updateUI();
         updateGhosts();
+
+        /* ═══════════════════════════════════════════════════════════
+           SETTINGS / BOT API PANEL
+           ═══════════════════════════════════════════════════════════ */
+
+        var settingsPanel = document.getElementById('settings-panel');
+
+        document.getElementById('btn-settings').addEventListener('click', function() {
+            settingsPanel.classList.add('show');
+        });
+        document.getElementById('settings-close').addEventListener('click', function() {
+            settingsPanel.classList.remove('show');
+        });
+        settingsPanel.addEventListener('click', function(e) {
+            if (e.target === settingsPanel) settingsPanel.classList.remove('show');
+        });
+
+        // Language tab switching
+        window.switchLang = function(lang) {
+            document.querySelectorAll('.lang-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.lang-panel').forEach(function(p) { p.classList.remove('active'); });
+            document.querySelector('.lang-tab[onclick="switchLang(\'' + lang + '\')"]').classList.add('active');
+            document.getElementById('lang-' + lang).classList.add('active');
+        };
+
+        // Copy helpers
+        window.copyText = function(text) {
+            if (navigator.clipboard) navigator.clipboard.writeText(text);
+        };
+        window.copyCode = function(lang) {
+            var el = document.getElementById('code-' + lang);
+            if (el && navigator.clipboard) navigator.clipboard.writeText(el.textContent);
+        };
+
+        // Opponent selector
+        var selectedOpponent = 'ai:easy';
+        document.querySelectorAll('.opp-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.opp-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                selectedOpponent = btn.dataset.opp;
+            });
+        });
+
+        // Create bot room from the settings panel
+        document.getElementById('btn-create-bot-room').addEventListener('click', function() {
+            var s = getOrCreateSocket();
+            if (!s) return;
+            s.emit('bot-register', { name: 'Settings Panel' });
+            s.emit('create-bot-room', { opponent: selectedOpponent });
+
+            var resultDiv  = document.getElementById('bot-room-result');
+            var codeDisplay = document.getElementById('bot-room-code-display');
+            var statusDiv   = document.getElementById('bot-room-status');
+            resultDiv.style.display = 'block';
+            codeDisplay.textContent = '...';
+            statusDiv.textContent   = '';
+
+            s.once('room-created', function(data) {
+                codeDisplay.textContent = data.code;
+                statusDiv.textContent   = selectedOpponent.startsWith('ai:')
+                    ? 'Room ready — connect your bot script to start!'
+                    : 'Waiting for ' + (selectedOpponent === 'bot' ? 'another bot' : 'a human') + ' to join\u2026';
+            });
+
+            codeDisplay.onclick = function() {
+                var code = codeDisplay.textContent;
+                if (code === '...' || code === '-----') return;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(code).then(function() {
+                        var orig = codeDisplay.textContent;
+                        codeDisplay.textContent = 'COPIED!';
+                        setTimeout(function() { codeDisplay.textContent = orig; }, 1200);
+                    });
+                }
+            };
+
+            s.on('game-start', function(data) {
+                if (data.opponent_type && data.opponent_type !== 'human' && data.opponent_type !== 'bot') return;
+                statusDiv.textContent = 'Opponent connected! Game started.';
+                statusDiv.style.color = '#55cc77';
+            });
+        });
+
     })();
     </script>
 </body>
