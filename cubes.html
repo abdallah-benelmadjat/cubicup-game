@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Cubi Cup</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #1e1830; font-family: 'Inter', system-ui, sans-serif; }
+        canvas { display: block; }
+
+        /* ═══════════════════════════════════════════════════════════
+           MAIN MENU OVERLAY
+           ═══════════════════════════════════════════════════════════ */
+        #main-menu {
+            position: fixed; inset: 0; z-index: 200;
+            background: radial-gradient(ellipse at 40% 50%, rgba(50,28,85,0.9) 0%, rgba(8,5,18,0.98) 100%);
+            backdrop-filter: blur(14px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+            overflow: hidden;
+        }
+        #main-menu.hidden { opacity: 0; visibility: hidden; }
+
+        /* floating decorative cubes */
+        .menu-cube {
+            position: absolute; border-radius: 5px; pointer-events: none;
+            opacity: 0.06; animation: floatCube linear infinite;
+        }
+        @keyframes floatCube {
+            0%   { transform: translateY(0px) rotate(0deg); }
+            100% { transform: translateY(-110vh) rotate(420deg); }
+        }
+
+        /* title glow pulse */
+        @keyframes titlePulse {
+            0%,100% { text-shadow: 0 0 24px rgba(212,165,32,0.45), 0 0 60px rgba(40,85,160,0.4), 0 0 110px rgba(212,165,32,0.12); }
+            50%      { text-shadow: 0 0 48px rgba(212,165,32,0.85), 0 0 90px rgba(68,136,221,0.6), 0 0 140px rgba(212,165,32,0.3); }
+        }
+
+        /* panel slide-in */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .menu-title {
+            font-family: 'Fredoka', sans-serif; font-size: 96px; color: #fff;
+            letter-spacing: 10px; text-transform: uppercase; line-height: 1;
+            animation: titlePulse 3.2s ease-in-out infinite;
+            margin-bottom: 6px;
+        }
+        .menu-tagline {
+            font-family: 'Fredoka', sans-serif; font-size: 16px;
+            color: rgba(190,165,255,0.5); letter-spacing: 4px; text-transform: uppercase;
+            margin-bottom: 52px;
+        }
+
+        /* panels */
+        .menu-panel {
+            display: none; flex-direction: column; align-items: center;
+            width: 100%; max-width: 460px;
+        }
+        .menu-panel.active {
+            display: flex;
+            animation: slideIn 0.35s ease forwards;
+        }
+
+        .menu-section-title {
+            font-family: 'Fredoka', sans-serif; font-size: 24px; color: #fff;
+            letter-spacing: 2px; text-align: center; margin-bottom: 26px;
+            padding-bottom: 14px; width: 100%;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .menu-btn {
+            font-family: 'Inter', sans-serif; font-size: 17px; font-weight: 600;
+            background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.12); color: #fff;
+            padding: 15px 0; border-radius: 14px; cursor: pointer;
+            width: 300px; margin-bottom: 13px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            position: relative; overflow: hidden;
+        }
+        .menu-btn::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.06), transparent);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .menu-btn:hover:not(.disabled)::after { opacity: 1; }
+        .menu-btn:hover:not(.disabled) {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 16px 32px rgba(0,0,0,0.5);
+            border-color: rgba(255,255,255,0.28);
+        }
+        .menu-btn.primary {
+            background: linear-gradient(135deg, rgba(212,165,32,0.22), rgba(212,165,32,0.08));
+            border-color: rgba(212,165,32,0.38);
+        }
+        .menu-btn.primary:hover:not(.disabled) {
+            background: linear-gradient(135deg, rgba(212,165,32,0.38), rgba(212,165,32,0.18));
+            border-color: rgba(212,165,32,0.65);
+            box-shadow: 0 16px 32px rgba(212,165,32,0.18);
+        }
+        .menu-btn.disabled { opacity: 0.38; cursor: not-allowed; }
+        .menu-btn.text-only {
+            background: transparent; border-color: transparent; box-shadow: none;
+            color: #6655aa; font-size: 14px; width: auto; margin-top: 10px; padding: 10px 22px;
+        }
+        .menu-btn.text-only:hover { color: #ddd; background: rgba(255,255,255,0.05); transform: none; box-shadow: none; }
+
+        .btn-icon { font-size: 16px; opacity: 0.75; }
+        .badge-wip {
+            background: #D4A520; color: #000; font-size: 10px; font-weight: 800;
+            padding: 2px 7px; border-radius: 5px; margin-left: 6px;
+        }
+
+        /* HOW TO PLAY guide */
+        .guide-scroll {
+            max-height: 52vh; overflow-y: auto; width: 100%;
+            padding-right: 6px;
+            scrollbar-width: thin; scrollbar-color: rgba(212,165,32,0.25) transparent;
+        }
+        .guide-scroll::-webkit-scrollbar { width: 4px; }
+        .guide-scroll::-webkit-scrollbar-thumb { background: rgba(212,165,32,0.28); border-radius: 4px; }
+        .guide-card {
+            background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 13px; padding: 16px 20px; margin-bottom: 11px;
+        }
+        .guide-card h3 {
+            font-family: 'Fredoka', sans-serif; font-size: 17px; font-weight: 600;
+            margin-bottom: 9px; display: flex; align-items: center; gap: 9px;
+        }
+        .guide-card h3 .num {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700;
+            background: currentColor; color: #000; flex-shrink: 0;
+            filter: brightness(0.9);
+        }
+        .guide-card h3.c-gold  { color: #D4A520; }
+        .guide-card h3.c-blue  { color: #5599ee; }
+        .guide-card h3.c-green { color: #55cc88; }
+        .guide-card h3.c-red   { color: #ee7766; }
+        .guide-card h3.c-white { color: #ccbbdd; }
+        .guide-card p, .guide-card li { color: #9988bb; font-size: 13.5px; line-height: 1.72; }
+        .guide-card ul { padding-left: 18px; }
+        .guide-card li { margin-bottom: 3px; }
+        .guide-card strong { color: #ddd; font-weight: 600; }
+
+        /* CREDITS */
+        .credits-block {
+            width: 100%; max-width: 400px;
+        }
+        .credits-item {
+            background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 13px; padding: 20px 28px; margin-bottom: 12px; text-align: center;
+        }
+        .credits-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 2.5px;
+            color: rgba(200,180,255,0.35); margin-bottom: 7px;
+        }
+        .credits-name {
+            font-family: 'Fredoka', sans-serif; font-size: 21px; color: #fff; line-height: 1.2;
+        }
+        .credits-sub {
+            font-size: 12.5px; color: rgba(180,160,210,0.55); margin-top: 4px;
+        }
+        .credits-divider {
+            width: 48px; height: 1px; margin: 8px auto 0;
+            background: linear-gradient(90deg, transparent, rgba(212,165,32,0.4), transparent);
+        }
+
+        /* ── Online mode UI ───────────────────────────────────────────────────── */
+        .online-status {
+            font-size: 13.5px; color: #9988bb; text-align: center;
+            margin-bottom: 20px; line-height: 1.7; max-width: 320px;
+        }
+        .room-code-display {
+            font-family: 'Fredoka', monospace; font-size: 44px; letter-spacing: 12px;
+            color: #D4A520; text-align: center; margin: 10px 0 22px;
+            padding: 14px 28px;
+            background: rgba(212,165,32,0.07); border: 1px solid rgba(212,165,32,0.28);
+            border-radius: 14px; user-select: all; cursor: text;
+        }
+        .room-code-input {
+            font-family: 'Fredoka', monospace; font-size: 30px; letter-spacing: 9px;
+            text-align: center; text-transform: uppercase;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px; color: #fff; padding: 12px 20px; width: 260px;
+            outline: none; margin-bottom: 10px; display: block;
+        }
+        .room-code-input:focus { border-color: rgba(212,165,32,0.55); box-shadow: 0 0 0 3px rgba(212,165,32,0.1); }
+        .room-code-input::placeholder { color: rgba(255,255,255,0.18); }
+        .online-error { color: #ee7766; font-size: 13px; text-align: center; min-height: 20px; margin-bottom: 10px; }
+        .connecting-dot {
+            display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+            background: #D4A520; margin-right: 3px;
+            animation: blink 1.2s ease-in-out infinite;
+        }
+        .connecting-dot:nth-child(2) { animation-delay: 0.2s; }
+        .connecting-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%,80%,100% { opacity: 0.15; } 40% { opacity: 1; } }
+        #online-badge {
+            display: none; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            background: rgba(68,180,90,0.18); border: 1px solid rgba(68,180,90,0.35);
+            color: #55cc77; font-size: 11px; font-weight: 600; padding: 3px 12px;
+            border-radius: 0 0 8px 8px; letter-spacing: 0.5px; pointer-events: none;
+        }
+
+        /* Menu state hiding game UI */
+        body.in-menu #topbar, body.in-menu #bottom-bar { opacity: 0; pointer-events: none; }
+        #topbar, #bottom-bar { transition: opacity 0.4s ease; }
+
+        /* ═══════════════════════════════════════════════════════════
+           ORIGINAL GAME UI
+           ═══════════════════════════════════════════════════════════ */
+        #topbar {
+            position: absolute; top: 0; left: 0; right: 0;
+            display: flex; justify-content: center; align-items: center;
+            gap: 16px; padding: 10px 16px;
+            background: linear-gradient(180deg, rgba(16,12,28,0.95) 0%, rgba(16,12,28,0) 100%);
+            pointer-events: none; z-index: 10;
+        }
+        .player-panel {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 14px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; color: #fff;
+            transition: all 0.3s ease; min-width: 140px; justify-content: center;
+        }
+        .player-panel.yellow { background: rgba(200,150,10,0.2); border: 2px solid rgba(200,150,10,0.25); }
+        .player-panel.blue   { background: rgba(40,80,160,0.2);  border: 2px solid rgba(40,80,160,0.25); }
+        .player-panel.active.yellow { background: rgba(200,150,10,0.45); border-color: #D4A520; box-shadow: 0 0 18px rgba(212,165,32,0.35); }
+        .player-panel.active.blue   { background: rgba(40,80,160,0.45);  border-color: #4488dd; box-shadow: 0 0 18px rgba(68,136,221,0.35); }
+        .ci { width: 16px; height: 16px; border-radius: 3px; display: inline-block; }
+        .ci.yellow { background: #D4A520; }
+        .ci.blue   { background: #2855A0; }
+        .cube-count { font-size: 20px; font-weight: 700; font-family: 'Fredoka', sans-serif; }
+        #turn-msg {
+            font-size: 14px; font-weight: 600; color: #bbaacc;
+            text-align: center; min-width: 160px;
+            font-family: 'Fredoka', sans-serif; letter-spacing: 0.3px;
+        }
+
+        #bottom-bar {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            display: flex; justify-content: center; align-items: center; gap: 16px;
+            padding: 10px 16px;
+            background: linear-gradient(0deg, rgba(16,12,28,0.9) 0%, rgba(16,12,28,0) 100%);
+            z-index: 10;
+        }
+        #hint { font-size: 11px; color: #554466; pointer-events: none; }
+        #cc-score { font-size: 12px; color: #998; font-weight: 500; pointer-events: none; }
+        #cc-score .y { color: #D4A520; }
+        #cc-score .b { color: #5599ee; }
+        .btn {
+            font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+            color: #bbaacc; padding: 5px 12px; border-radius: 7px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+        #overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(12,8,22,0.88);
+            z-index: 100; justify-content: center; align-items: center;
+        }
+        #overlay.show { display: flex; }
+        #modal {
+            background: linear-gradient(135deg, #2a2045, #1e1635);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px; padding: 36px 44px;
+            text-align: center; color: #fff;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        #modal h2 { font-family: 'Fredoka', sans-serif; font-size: 30px; margin-bottom: 8px; }
+        #modal p { color: #aaa; margin-bottom: 20px; font-size: 14px; }
+        #modal .btn { font-size: 15px; padding: 10px 28px; border-radius: 10px; }
+        .win-yellow h2 { color: #D4A520; }
+        .win-blue h2 { color: #5599ee; }
+    </style>
+</head>
+<body class="in-menu">
+
+    <div id="main-menu">
+
+        <!-- Floating decorative cubes -->
+        <div class="menu-cube" style="width:55px;height:55px;background:#D4A520;left:6%;bottom:-60px;animation-duration:19s;animation-delay:-4s;"></div>
+        <div class="menu-cube" style="width:28px;height:28px;background:#2855A0;left:18%;bottom:-30px;animation-duration:24s;animation-delay:-10s;"></div>
+        <div class="menu-cube" style="width:70px;height:70px;background:#2855A0;right:8%;bottom:-75px;animation-duration:28s;animation-delay:-16s;"></div>
+        <div class="menu-cube" style="width:18px;height:18px;background:#D4A520;right:22%;bottom:-20px;animation-duration:14s;animation-delay:-7s;"></div>
+        <div class="menu-cube" style="width:90px;height:90px;background:#2855A0;left:38%;bottom:-95px;animation-duration:34s;animation-delay:-22s;"></div>
+        <div class="menu-cube" style="width:38px;height:38px;background:#D4A520;right:38%;bottom:-40px;animation-duration:21s;animation-delay:-3s;"></div>
+        <div class="menu-cube" style="width:22px;height:22px;background:#D4A520;left:50%;bottom:-25px;animation-duration:17s;animation-delay:-12s;"></div>
+        <div class="menu-cube" style="width:45px;height:45px;background:#2855A0;right:52%;bottom:-50px;animation-duration:26s;animation-delay:-8s;"></div>
+
+        <h1 class="menu-title">CubiCup</h1>
+        <p class="menu-tagline">Strategic Cube Placement &nbsp;&middot;&nbsp; 2 Players</p>
+
+        <!-- Primary panel -->
+        <div id="menu-primary" class="menu-panel active">
+            <button class="menu-btn primary" id="btn-menu-play">
+                <span class="btn-icon">&#9654;</span> Play Game
+            </button>
+            <button class="menu-btn" id="btn-menu-guide">
+                <span class="btn-icon">&#9432;</span> How to Play
+            </button>
+            <button class="menu-btn" id="btn-menu-credits">
+                <span class="btn-icon">&#9733;</span> Credits
+            </button>
+        </div>
+
+        <!-- Game Mode panel -->
+        <div id="menu-modes" class="menu-panel">
+            <div class="menu-section-title">Select Mode</div>
+            <button class="menu-btn primary" id="btn-mode-pvp">
+                Two Players (Local)
+            </button>
+            <button class="menu-btn" id="btn-mode-ai-menu">
+                Vs AI
+            </button>
+            <button class="menu-btn" id="btn-mode-online"
+                style="border-color:rgba(68,180,90,0.4);background:linear-gradient(135deg,rgba(68,180,90,0.14),rgba(68,180,90,0.04));">
+                <span class="btn-icon">&#127760;</span> Play Online
+            </button>
+            <button class="menu-btn text-only" id="btn-mode-back">&#8592; Back</button>
+        </div>
+
+        <!-- AI Difficulty panel -->
+        <div id="menu-ai-diff" class="menu-panel">
+            <div class="menu-section-title">Choose Difficulty</div>
+            <button class="menu-btn" id="btn-diff-easy"
+                style="border-color:rgba(85,204,136,0.4);background:linear-gradient(135deg,rgba(85,204,136,0.14),rgba(85,204,136,0.04));">
+                Easy
+            </button>
+            <button class="menu-btn" id="btn-diff-medium"
+                style="border-color:rgba(212,165,32,0.4);background:linear-gradient(135deg,rgba(212,165,32,0.14),rgba(212,165,32,0.04));">
+                Medium
+            </button>
+            <button class="menu-btn" id="btn-diff-hard"
+                style="border-color:rgba(238,90,70,0.4);background:linear-gradient(135deg,rgba(238,90,70,0.14),rgba(238,90,70,0.04));">
+                Hard
+            </button>
+            <button class="menu-btn" id="btn-diff-extreme"
+                style="border-color:rgba(190,55,255,0.55);background:linear-gradient(135deg,rgba(190,55,255,0.18),rgba(190,55,255,0.05));flex-direction:column;gap:3px;padding-top:12px;padding-bottom:12px;">
+                <span>Extreme</span>
+                <span style="font-size:10px;font-weight:400;opacity:0.5;letter-spacing:0.2px;">Beat me &amp; I'll give you $10</span>
+            </button>
+            <button class="menu-btn text-only" id="btn-diff-back">&#8592; Back</button>
+        </div>
+
+        <!-- How to Play panel -->
+        <div id="menu-guide" class="menu-panel" style="max-width:540px;">
+            <div class="menu-section-title">How to Play</div>
+            <div class="guide-scroll">
+
+                <div class="guide-card">
+                    <h3 class="c-gold"><span class="num">1</span> Overview</h3>
+                    <p>CubiCup is a 2-player strategy game. Each player chooses a color and takes turns placing cubes on a pyramid-shaped board. The goal: be the player who places the <strong>final cube at the top</strong>.</p>
+                </div>
+
+                <div class="guide-card">
+                    <h3 class="c-blue"><span class="num">2</span> Setup</h3>
+                    <ul>
+                        <li>Each player selects a set of colored cubes.</li>
+                        <li>The board starts completely empty.</li>
+                        <li>Yellow always goes first.</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card">
+                    <h3 class="c-green"><span class="num">3</span> Building CubiCups</h3>
+                    <ul>
+                        <li>A <strong>CubiCup</strong> is formed by arranging 3 cubes next to each other.</li>
+                        <li>Cubes can belong to multiple CubiCups simultaneously.</li>
+                        <li>Place cubes anywhere on the board as long as the placement is valid.</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card">
+                    <h3 class="c-white"><span class="num">4</span> Turn Rules</h3>
+                    <ul>
+                        <li>Players alternate placing cubes each turn.</li>
+                        <li>When you form a CubiCup, your opponent must fill all CubiCups you created.</li>
+                        <li>If your opponent then creates CubiCups, you must respond accordingly.</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card">
+                    <h3 class="c-red"><span class="num">5</span> Special Rules</h3>
+                    <ul>
+                        <li>Placing the <strong>last cube at the peak</strong> wins the game.</li>
+                        <li>If that move completes a CubiCup for your opponent, it may result in a <strong>draw</strong>.</li>
+                        <li>Creating <strong>two CubiCups at once</strong> can secure a guaranteed win.</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card">
+                    <h3 class="c-gold"><span class="num">6</span> Tips</h3>
+                    <ul>
+                        <li>Try to create multiple CubiCups in a single move.</li>
+                        <li>Think ahead &mdash; your placement directly shapes your opponent's options.</li>
+                        <li>Control the center to maximize future placement possibilities.</li>
+                    </ul>
+                </div>
+
+            </div>
+            <button class="menu-btn text-only" id="btn-guide-back">&#8592; Back</button>
+        </div>
+
+        <!-- Credits panel -->
+        <div id="menu-credits" class="menu-panel">
+            <div class="menu-section-title">Credits</div>
+            <div class="credits-block">
+
+                <div class="credits-item">
+                    <div class="credits-label">Developed for</div>
+                    <div class="credits-name">Industrial Mathematics II</div>
+                    <div class="credits-divider"></div>
+                    <div class="credits-sub">University of Wisconsin&ndash;Milwaukee</div>
+                </div>
+
+                <div class="credits-item">
+                    <div class="credits-label">Course Instructor</div>
+                    <div class="credits-name">Dr. Istvan Lauko</div>
+                    <div class="credits-sub">Department of Mathematical Sciences</div>
+                </div>
+
+                <div class="credits-item">
+                    <div class="credits-label">Developer</div>
+                    <div class="credits-name">Abe Benelmadjat</div>
+                </div>
+
+            </div>
+            <button class="menu-btn text-only" id="btn-credits-back">&#8592; Back</button>
+        </div>
+
+        <!-- Online Options panel -->
+        <div id="menu-online" class="menu-panel">
+            <div class="menu-section-title">Play Online</div>
+            <p class="online-status">Play against a friend anywhere.<br>One player creates a room, the other joins with the code.</p>
+            <button class="menu-btn primary" id="btn-online-create">
+                <span class="btn-icon">&#43;</span> Create Room
+            </button>
+            <button class="menu-btn" id="btn-online-join-btn"
+                style="border-color:rgba(68,136,221,0.4);background:linear-gradient(135deg,rgba(68,136,221,0.14),rgba(68,136,221,0.04));">
+                <span class="btn-icon">&#10140;</span> Join a Room
+            </button>
+            <button class="menu-btn text-only" id="btn-online-back">&#8592; Back</button>
+        </div>
+
+        <!-- Waiting for opponent panel -->
+        <div id="menu-online-wait" class="menu-panel">
+            <div class="menu-section-title">Waiting for Opponent</div>
+            <p class="online-status">Share this code with your friend:</p>
+            <div class="room-code-display" id="display-room-code" title="Click to copy">-----</div>
+            <p class="online-status" style="font-size:12px;opacity:0.55;">
+                You are <strong style="color:#D4A520">Yellow</strong> &nbsp;&mdash;&nbsp; you move first
+            </p>
+            <p class="online-status" style="font-size:12px;margin-top:-10px;">
+                <span class="connecting-dot"></span><span class="connecting-dot"></span><span class="connecting-dot"></span>
+                &nbsp;waiting&hellip;
+            </p>
+            <button class="menu-btn text-only" id="btn-wait-cancel">&#8592; Cancel</button>
+        </div>
+
+        <!-- Join with code panel -->
+        <div id="menu-online-join-panel" class="menu-panel">
+            <div class="menu-section-title">Join a Room</div>
+            <p class="online-status">Enter the 5-letter room code:</p>
+            <input class="room-code-input" id="room-code-input" type="text"
+                   maxlength="5" placeholder="ABCDE"
+                   autocomplete="off" spellcheck="false">
+            <div class="online-error" id="join-error-msg"></div>
+            <button class="menu-btn primary" id="btn-join-confirm">
+                <span class="btn-icon">&#10140;</span> Join Game
+            </button>
+            <button class="menu-btn text-only" id="btn-join-back">&#8592; Back</button>
+        </div>
+
+    </div>
+
+    <div id="online-badge">&#9679; Online</div>
+
+    <div id="topbar">
+        <div class="player-panel yellow active" id="panel-yellow">
+            <span class="ci yellow"></span>
+            <span>Yellow</span>
+            <span class="cube-count" id="count-yellow">28</span>
+        </div>
+        <div id="turn-msg">Yellow's turn</div>
+        <div class="player-panel blue" id="panel-blue">
+            <span class="ci blue"></span>
+            <span>Blue</span>
+            <span class="cube-count" id="count-blue">28</span>
+        </div>
+    </div>
+
+    <div id="bottom-bar">
+        <span id="hint">drag to orbit · scroll to zoom · click to place</span>
+        <span id="cc-score">
+            CubiCups: <span class="y" id="cc-y">0</span> · <span class="b" id="cc-b">0</span>
+        </span>
+        <button class="btn" id="btn-game-menu">Main Menu</button>
+        <button class="btn" id="btn-new">Restart</button>
+        <button class="btn" id="btn-view">▲ Front View</button>
+    </div>
+
+    <div id="overlay">
+        <div id="modal">
+            <h2 id="win-title"></h2>
+            <p id="win-msg"></p>
+            <button class="btn" id="btn-again">Play Again</button>
+        </div>
+    </div>
+
+    <!-- Socket.IO is served automatically by the Node.js server at /socket.io/socket.io.js -->
+    <!-- It will fail silently when opening the file directly (no server), which is fine. -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    (function () {
+        'use strict';
+
+        /* ═══════════════════════════════════════════════════════════
+           CONSTANTS
+           ═══════════════════════════════════════════════════════════ */
+        var N = 6;                  // Tetrahedron order (x+y+z ≤ 5)
+        var S = 1.0;                // Grid spacing
+        var CSIZE = 1.0;            // Cube side length
+        var PEAK_KEY = '0,0,0';     // The winning position
+
+        var COL_YELLOW = 0xD4A520;
+        var COL_BLUE   = 0x2855A0;
+        var COL_BG     = 0x1e1830;
+        var COL_GHOST  = 0x554466;
+        var COL_HOVER_Y = 0xFFD54F;
+        var COL_HOVER_B = 0x64B5F6;
+
+        /* ═══════════════════════════════════════════════════════════
+           GAME STATE
+           ═══════════════════════════════════════════════════════════ */
+        var board = {};
+        var currentPlayer = 'yellow';
+        var mandatoryTargets = [];  // Keys that the current player MUST play
+        var cubesLeft = { yellow: 28, blue: 28 };
+        var gameOver = false;
+        var isMenuOpen = true;      // Prevent interaction when menu is open
+        var gameMode = 'pvp';       // 'pvp', 'ai', or 'online'
+        var aiDifficulty = 'easy';  // 'easy', 'medium', 'hard'
+        var AI_PLAYER = 'blue';
+        var AI_DELAY = 700;         // ms between AI moves
+        var aiScheduled = false;
+        var allPositions = [];
+        var meshMap = {};
+        var hoverKey = null;
+
+        // ── Online multiplayer state ─────────────────────────────────────────
+        var socket = null;          // Socket.IO socket (created lazily)
+        var myColor = null;         // 'yellow' | 'blue' — my assigned color in online game
+
+        // Generate tetrahedral grid positions for playable slots
+        for (var gy = 0; gy < N; gy++)
+            for (var gx = 0; gx < N; gx++)
+                for (var gz = 0; gz < N; gz++)
+                    if (gx + gy + gz <= N - 1) {
+                        var key = gx + ',' + gy + ',' + gz;
+                        allPositions.push(key);
+                        board[key] = null;
+                    }
+
+        /* ═══════════════════════════════════════════════════════════
+           MATH & TRANSFORMS
+           ═══════════════════════════════════════════════════════════ */
+        var cubeQuat = new THREE.Quaternion().setFromUnitVectors(
+            new THREE.Vector3(1, 1, 1).normalize(),
+            new THREE.Vector3(0, -1, 0)
+        );
+
+        function gridToWorld(gx, gy, gz) {
+            var pos = new THREE.Vector3(gx, gy, gz);
+            pos.multiplyScalar(S);
+            pos.applyQuaternion(cubeQuat);
+            return pos;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           THREE.JS SETUP
+           ═══════════════════════════════════════════════════════════ */
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(COL_BG);
+
+        var camera = new THREE.PerspectiveCamera(
+            40, window.innerWidth / window.innerHeight, 0.1, 500
+        );
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        var ambient = new THREE.AmbientLight(0x8877aa, 0.5);
+        scene.add(ambient);
+
+        var sun = new THREE.DirectionalLight(0xfff5e8, 0.85);
+        sun.position.set(4, 12, 8);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        scene.add(sun);
+
+        var fill = new THREE.DirectionalLight(0x88aadd, 0.3);
+        fill.position.set(-5, 4, -3);
+        scene.add(fill);
+
+        var backLight = new THREE.PointLight(0xffeedd, 0.2, 30);
+        backLight.position.set(0, 6, -8);
+        scene.add(backLight);
+
+        /* ═══════════════════════════════════════════════════════════
+           MATERIALS
+           ═══════════════════════════════════════════════════════════ */
+        var textureLoader = new THREE.TextureLoader();
+        textureLoader.setCrossOrigin('anonymous');
+        var woodTexture = textureLoader.load('wood.png');
+
+        var matYellow = new THREE.MeshStandardMaterial({ color: COL_YELLOW, roughness: 0.45, metalness: 0.02 });
+        var matBlue   = new THREE.MeshStandardMaterial({ color: COL_BLUE,   roughness: 0.40, metalness: 0.02 });
+        var matWood   = new THREE.MeshStandardMaterial({ map: woodTexture,  roughness: 0.90, metalness: 0.00 });
+        
+        var matGhost  = new THREE.MeshStandardMaterial({ color: COL_GHOST,  transparent: true, opacity: 0.10, roughness: 1, depthWrite: false });
+        var edgeMatGhost = new THREE.LineBasicMaterial({ color: COL_GHOST, transparent: true, opacity: 0.15 });
+        
+        var matGhostMandatory = new THREE.MeshStandardMaterial({ color: 0xFF3333, transparent: true, opacity: 0.45, roughness: 1, depthWrite: false });
+        var edgeMatGhostMandatory = new THREE.LineBasicMaterial({ color: 0xFF3333, transparent: true, opacity: 0.8 });
+
+        var matHoverY = new THREE.MeshStandardMaterial({ color: COL_HOVER_Y, transparent: true, opacity: 0.55, roughness: 0.3, metalness: 0 });
+        var matHoverB = new THREE.MeshStandardMaterial({ color: COL_HOVER_B, transparent: true, opacity: 0.55, roughness: 0.3, metalness: 0 });
+
+        var geom = new THREE.BoxGeometry(CSIZE, CSIZE, CSIZE);
+        var edgeGeom = new THREE.EdgesGeometry(geom);
+        var edgeMatSolid = new THREE.LineBasicMaterial({ color: 0x0a0a0a, transparent: true, opacity: 0.45 });
+
+        /* ═══════════════════════════════════════════════════════════
+           BUILD CUBE MESHES
+           ═══════════════════════════════════════════════════════════ */
+        var pyramidGroup = new THREE.Group();
+        var centroid = gridToWorld((N - 1) / 3, (N - 1) / 3, (N - 1) / 3);
+        var baseY = gridToWorld(N - 1, 0, 0).y;
+        var peakY = gridToWorld(0, 0, 0).y;
+        var midY = (baseY + peakY) / 2;
+
+        for (var gy = 0; gy <= N; gy++) {
+            for (var gx = 0; gx <= N; gx++) {
+                for (var gz = 0; gz <= N; gz++) {
+                    if (gx + gy + gz === N) { 
+                        var worldPos = gridToWorld(gx, gy, gz);
+                        worldPos.x -= centroid.x;
+                        worldPos.y -= midY;
+                        worldPos.z -= centroid.z;
+
+                        var woodSolid = new THREE.Mesh(geom, matWood);
+                        woodSolid.position.set(worldPos.x, worldPos.y, worldPos.z);
+                        woodSolid.quaternion.copy(cubeQuat);
+                        woodSolid.castShadow = true;
+                        woodSolid.receiveShadow = true;
+                        pyramidGroup.add(woodSolid);
+
+                        var woodEdges = new THREE.LineSegments(edgeGeom, edgeMatSolid);
+                        woodEdges.position.set(worldPos.x, worldPos.y, worldPos.z);
+                        woodEdges.quaternion.copy(cubeQuat);
+                        pyramidGroup.add(woodEdges);
+                    }
+                }
+            }
+        }
+
+        allPositions.forEach(function (key) {
+            var p = key.split(',').map(Number);
+            var worldPos = gridToWorld(p[0], p[1], p[2]);
+            worldPos.x -= centroid.x;
+            worldPos.y -= midY;
+            worldPos.z -= centroid.z;
+
+            var solid = new THREE.Mesh(geom, matYellow);
+            solid.position.set(worldPos.x, worldPos.y, worldPos.z);
+            solid.quaternion.copy(cubeQuat);
+            solid.castShadow = true;
+            solid.receiveShadow = true;
+            solid.visible = false;
+            solid.userData.posKey = key;
+            pyramidGroup.add(solid);
+
+            var solidEdges = new THREE.LineSegments(edgeGeom, edgeMatSolid);
+            solidEdges.position.set(worldPos.x, worldPos.y, worldPos.z);
+            solidEdges.quaternion.copy(cubeQuat);
+            solidEdges.visible = false;
+            pyramidGroup.add(solidEdges);
+
+            var ghost = new THREE.Mesh(geom, matGhost);
+            ghost.position.set(worldPos.x, worldPos.y, worldPos.z);
+            ghost.quaternion.copy(cubeQuat);
+            ghost.visible = false;
+            ghost.userData.posKey = key;
+            ghost.userData.isGhost = true;
+            pyramidGroup.add(ghost);
+
+            var ghostEdges = new THREE.LineSegments(edgeGeom, edgeMatGhost);
+            ghostEdges.position.set(worldPos.x, worldPos.y, worldPos.z);
+            ghostEdges.quaternion.copy(cubeQuat);
+            ghostEdges.visible = false;
+            pyramidGroup.add(ghostEdges);
+
+            meshMap[key] = {
+                solid: solid, solidEdges: solidEdges,
+                ghost: ghost, ghostEdges: ghostEdges
+            };
+        });
+
+        scene.add(pyramidGroup);
+
+        var ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(30, 30),
+            new THREE.MeshStandardMaterial({ color: 0x18122a, roughness: 0.95 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        var woodBaseY = gridToWorld(N, 0, 0).y;
+        ground.position.set(0, woodBaseY - midY - (CSIZE * Math.sqrt(3) / 2), 0);
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        /* ═══════════════════════════════════════════════════════════
+           GAME RULES & CUBICUP DETECTION
+           ═══════════════════════════════════════════════════════════ */
+        function isValidMove(key) {
+            if (board[key] !== null) return false;
+            var p = key.split(',').map(Number);
+            var s = p[0] + p[1] + p[2];
+            if (s === N - 1) return true;
+
+            var supports = [
+                (p[0]+1) + ',' + p[1] + ',' + p[2],
+                p[0] + ',' + (p[1]+1) + ',' + p[2],
+                p[0] + ',' + p[1] + ',' + (p[2]+1)
+            ];
+            for (var i = 0; i < 3; i++) {
+                if (board[supports[i]] === undefined || board[supports[i]] === null) return false; 
+            }
+            return true;
+        }
+
+        function getValidMoves() {
+            return allPositions.filter(isValidMove);
+        }
+
+        function getPlayerCubicups(playerColor) {
+            var targets = [];
+            getValidMoves().forEach(function(k) {
+                var p = k.split(',').map(Number);
+                var s1 = (p[0]+1) + ',' + p[1] + ',' + p[2];
+                var s2 = p[0] + ',' + (p[1]+1) + ',' + p[2];
+                var s3 = p[0] + ',' + p[1] + ',' + (p[2]+1);
+                
+                if (board[s1] === playerColor && board[s2] === playerColor && board[s3] === playerColor) {
+                    targets.push(k);
+                }
+            });
+            return targets;
+        }
+
+        function countStructuralCubicups(color) {
+            var count = 0;
+            for (var gy = 0; gy < N; gy++) {
+                for (var gx = 0; gx < N; gx++) {
+                    for (var gz = 0; gz < N; gz++) {
+                        if (gx + gy + gz < N - 1) { 
+                            var s1 = (gx+1)+','+gy+','+gz;
+                            var s2 = gx+','+(gy+1)+','+gz;
+                            var s3 = gx+','+gy+','+(gz+1);
+                            if (board[s1] === color && board[s2] === color && board[s3] === color) count++;
+                        }
+                    }
+                }
+            }
+            return count;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           PLACE CUBE
+           ═══════════════════════════════════════════════════════════ */
+        function placeCube(key) {
+            if (gameOver || isMenuOpen) return false;
+
+            if (mandatoryTargets.length > 0) {
+                if (mandatoryTargets.indexOf(key) === -1) return false;
+            } else {
+                if (!isValidMove(key)) return false;
+            }
+
+            var wasMandatory = mandatoryTargets.length > 0;
+
+            board[key] = currentPlayer;
+            cubesLeft[currentPlayer]--;
+
+            var m = meshMap[key];
+            m.solid.material = currentPlayer === 'yellow' ? matYellow : matBlue;
+            m.solid.visible = true;
+            m.solidEdges.visible = true;
+            m.ghost.visible = false;
+            m.ghostEdges.visible = false;
+
+            m.solid.scale.set(0.01, 0.01, 0.01);
+            m.solidEdges.scale.set(0.01, 0.01, 0.01);
+            animateScale(m.solid, 1.0, 300);
+            animateScale(m.solidEdges, 1.0, 300);
+
+            if (key === PEAK_KEY) {
+                var opp = currentPlayer === 'yellow' ? 'blue' : 'yellow';
+                var p = key.split(',').map(Number);
+                var supports = [
+                    (p[0]+1) + ',' + p[1] + ',' + p[2],
+                    p[0] + ',' + (p[1]+1) + ',' + p[2],
+                    p[0] + ',' + p[1] + ',' + (p[2]+1)
+                ];
+                
+                var currentCount = 0, oppCount = 0;
+                supports.forEach(function(s) {
+                    if (board[s] === currentPlayer) currentCount++;
+                    if (board[s] === opp) oppCount++;
+                });
+
+                if (oppCount === 3) {
+                    endGame(null, 'Placed the peak in opponent\'s CUBICUP — Draw!');
+                } else if (currentCount === 3) {
+                    endGame(currentPlayer, 'Placed the peak in own CUBICUP — Double Victory!');
+                } else {
+                    endGame(currentPlayer, 'Placed the peak cube — Victory!');
+                }
+                return true;
+            }
+
+            if (cubesLeft.yellow + cubesLeft.blue <= 0) {
+                endGame(null, 'All cubes placed — draw!');
+                return true;
+            }
+
+            if (wasMandatory) {
+                var idx = mandatoryTargets.indexOf(key);
+                if (idx > -1) mandatoryTargets.splice(idx, 1);
+            } else {
+                currentPlayer = currentPlayer === 'yellow' ? 'blue' : 'yellow';
+                var opponentToCurrent = currentPlayer === 'yellow' ? 'blue' : 'yellow';
+                mandatoryTargets = getPlayerCubicups(opponentToCurrent);
+            }
+
+            // ── Cube exhaustion: if the current player has no cubes left,
+            //    clear any mandatory obligations they can't fulfil and hand
+            //    all remaining turns to the opponent (who still has cubes).
+            if (!gameOver && cubesLeft[currentPlayer] === 0) {
+                var exhaustedOpp = currentPlayer === 'yellow' ? 'blue' : 'yellow';
+                if (cubesLeft[exhaustedOpp] > 0) {
+                    mandatoryTargets = [];      // exhausted player skips everything
+                    currentPlayer = exhaustedOpp;
+                }
+            }
+
+            updateUI();
+            updateGhosts();
+            // Emit move to opponent in online mode
+            if (gameMode === 'online' && socket) {
+                socket.emit('move', { move: key });
+            }
+            // Trigger AI if it's now the AI's turn
+            if (!gameOver && gameMode === 'ai' && currentPlayer === AI_PLAYER) {
+                scheduleAiMove();
+            }
+            return true;
+        }
+
+        function animateScale(obj, target, dur) {
+            var t0 = performance.now();
+            var s0 = obj.scale.x;
+            function tick(now) {
+                var t = Math.min((now - t0) / dur, 1);
+                var ease = t === 1 ? 1 : 1 - Math.pow(2, -10 * t) * Math.cos((t * 10 - 0.75) * 2.094);
+                var s = s0 + (target - s0) * ease;
+                obj.scale.set(s, s, s);
+                if (t < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        function endGame(winner, message) {
+            gameOver = true;
+            var modal = document.getElementById('modal');
+            modal.className = '';
+            if (winner) {
+                document.getElementById('win-title').textContent = (winner === 'yellow' ? 'Yellow' : 'Blue') + ' Wins!';
+                modal.classList.add(winner === 'yellow' ? 'win-yellow' : 'win-blue');
+            } else {
+                document.getElementById('win-title').textContent = 'Draw!';
+            }
+            document.getElementById('win-msg').textContent = message;
+            setTimeout(function () { document.getElementById('overlay').classList.add('show'); }, 500);
+        }
+
+        function updateUI() {
+            document.getElementById('count-yellow').textContent = cubesLeft.yellow;
+            document.getElementById('count-blue').textContent = cubesLeft.blue;
+            document.getElementById('panel-yellow').classList.toggle('active', currentPlayer === 'yellow');
+            document.getElementById('panel-blue').classList.toggle('active', currentPlayer === 'blue');
+            
+            var msg = '';
+            if (gameOver) {
+                msg = 'Game Over';
+            } else if (gameMode === 'ai' && currentPlayer === AI_PLAYER) {
+                var dlabel = aiDifficulty.charAt(0).toUpperCase() + aiDifficulty.slice(1);
+                msg = dlabel + ' AI is thinking\u2026';
+            } else if (gameMode === 'online') {
+                if (currentPlayer === myColor) {
+                    msg = mandatoryTargets.length > 0 ? 'Your turn \u2014 fill CUBICUP!' : 'Your turn';
+                } else {
+                    msg = "Opponent's turn\u2026";
+                }
+            } else {
+                var name = currentPlayer === 'yellow' ? 'Yellow' : 'Blue';
+                if (mandatoryTargets.length > 0) {
+                    msg = name + ' must fill CUBICUP!';
+                } else {
+                    msg = name + "'s turn";
+                }
+            }
+            document.getElementById('turn-msg').textContent = msg;
+
+            document.getElementById('cc-y').textContent = countStructuralCubicups('yellow');
+            document.getElementById('cc-b').textContent = countStructuralCubicups('blue');
+        }
+
+        function updateGhosts() {
+            var valid = {};
+            var isAiTurn = gameMode === 'ai' && currentPlayer === AI_PLAYER;
+            var isOpponentTurn = gameMode === 'online' && currentPlayer !== myColor;
+            if (!gameOver && !isMenuOpen && !isAiTurn && !isOpponentTurn) {
+                if (mandatoryTargets.length > 0) {
+                    mandatoryTargets.forEach(function(k) { valid[k] = 'mandatory'; });
+                } else {
+                    getValidMoves().forEach(function(k) { valid[k] = 'normal'; });
+                }
+            }
+
+            allPositions.forEach(function (key) {
+                var m = meshMap[key];
+                var status = valid[key];
+                
+                if (status) {
+                    m.ghost.visible = true;
+                    m.ghostEdges.visible = true;
+                    if (status === 'mandatory') {
+                        m.ghost.material = matGhostMandatory;
+                        m.ghostEdges.material = edgeMatGhostMandatory;
+                    } else {
+                        m.ghost.material = matGhost;
+                        m.ghostEdges.material = edgeMatGhost;
+                    }
+                } else {
+                    m.ghost.visible = false;
+                    m.ghostEdges.visible = false;
+                }
+            });
+        }
+
+        function resetGame() {
+            gameOver = false;
+            currentPlayer = 'yellow';
+            mandatoryTargets = [];
+            cubesLeft = { yellow: 28, blue: 28 };
+            aiScheduled = false;
+            allPositions.forEach(function (key) {
+                board[key] = null;
+                var m = meshMap[key];
+                m.solid.visible = false;
+                m.solidEdges.visible = false;
+                m.solid.scale.set(1, 1, 1);
+                m.solidEdges.scale.set(1, 1, 1);
+            });
+            updateUI();
+            updateGhosts();
+            document.getElementById('overlay').classList.remove('show');
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           AI PLAYERS
+           ═══════════════════════════════════════════════════════════ */
+
+        // How many new cups-for-color are created by placing at key?
+        // A "cup" is a valid empty slot whose 3 supports are all `color`.
+        function countNewCupsIfPlace(key, color) {
+            board[key] = color;
+            var p = key.split(',').map(Number);
+            // Positions that have `key` as one of their supports are at (p-1) in each axis
+            var candidates = [];
+            if (p[0] > 0) candidates.push((p[0]-1)+','+p[1]+','+p[2]);
+            if (p[1] > 0) candidates.push(p[0]+','+(p[1]-1)+','+p[2]);
+            if (p[2] > 0) candidates.push(p[0]+','+p[1]+','+(p[2]-1));
+            var count = 0;
+            candidates.forEach(function(c) {
+                if (board[c] !== null) return;
+                if (!isValidMove(c)) return;
+                var cp = c.split(',').map(Number);
+                var s1 = (cp[0]+1)+','+cp[1]+','+cp[2];
+                var s2 = cp[0]+','+(cp[1]+1)+','+cp[2];
+                var s3 = cp[0]+','+cp[1]+','+(cp[2]+1);
+                if (board[s1] === color && board[s2] === color && board[s3] === color) count++;
+            });
+            board[key] = null;
+            return count;
+        }
+
+        function aiPickMove() {
+            if (aiDifficulty === 'extreme') return extremePickMove();
+            var isMandatory = mandatoryTargets.length > 0;
+            var pool = isMandatory ? mandatoryTargets.slice() : getValidMoves();
+            if (pool.length === 0) return null;
+
+            // ── EASY: pure random ──────────────────────────────────
+            if (aiDifficulty === 'easy') {
+                return pool[Math.floor(Math.random() * pool.length)];
+            }
+
+            // ── MEDIUM: cluster with own cubes on free moves ───────
+            if (aiDifficulty === 'medium') {
+                if (isMandatory) {
+                    return pool[Math.floor(Math.random() * pool.length)];
+                }
+                // Score by how many of the 3 supports are already AI-color
+                var bestM = [], bestScoreM = -1;
+                pool.forEach(function(k) {
+                    var p = k.split(',').map(Number);
+                    var s1 = (p[0]+1)+','+p[1]+','+p[2];
+                    var s2 = p[0]+','+(p[1]+1)+','+p[2];
+                    var s3 = p[0]+','+p[1]+','+(p[2]+1);
+                    var sc = [s1,s2,s3].filter(function(s){ return board[s] === AI_PLAYER; }).length;
+                    if (sc > bestScoreM) { bestScoreM = sc; bestM = [k]; }
+                    else if (sc === bestScoreM) { bestM.push(k); }
+                });
+                return bestM[Math.floor(Math.random() * bestM.length)];
+            }
+
+            // ── HARD: maximize new cups on free moves ──────────────
+            if (aiDifficulty === 'hard') {
+                if (isMandatory) {
+                    return pool[Math.floor(Math.random() * pool.length)];
+                }
+                // Score = own cups created (weighted x2) + opponent cups blocked.
+                // Own cup creation takes priority; blocking is used to break ties
+                // and always provides value when no own cups are available.
+                var opponent = AI_PLAYER === 'yellow' ? 'blue' : 'yellow';
+                var bestH = [], bestScoreH = -1;
+                pool.forEach(function(k) {
+                    var ownCups     = countNewCupsIfPlace(k, AI_PLAYER);
+                    var blockedCups = countNewCupsIfPlace(k, opponent);
+                    var sc = ownCups * 2 + blockedCups;
+                    if (sc > bestScoreH) { bestScoreH = sc; bestH = [k]; }
+                    else if (sc === bestScoreH) { bestH.push(k); }
+                });
+                return bestH[Math.floor(Math.random() * bestH.length)];
+            }
+
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        function scheduleAiMove() {
+            if (aiScheduled || gameOver || gameMode !== 'ai') return;
+            aiScheduled = true;
+            // Mandatory moves require no thought — play them near-instantly.
+            // Free moves get a brief pause so the player can follow what's happening.
+            var isForcedMove = mandatoryTargets.length > 0;
+            var delay = isForcedMove         ? 160
+                      : aiDifficulty === 'extreme' ? 550
+                      : AI_DELAY;
+            setTimeout(function() {
+                aiScheduled = false;
+                if (gameOver || currentPlayer !== AI_PLAYER || gameMode !== 'ai') return;
+                var key = aiPickMove();
+                if (key) placeCube(key);
+            }, delay);
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           EXTREME AI  —  Minimax + Alpha-Beta + Forced-Chain Collapse
+           ═══════════════════════════════════════════════════════════ */
+        // Depth = genuine free-move plies. Mandatory chains are collapsed for free.
+        // Make/unmake on a single shared board — zero Object.assign per search node.
+        var EXTREME_DEPTH = 7;
+        var sBoard = null;  // shared search board (mutated in-place, restored after each node)
+        var sCL    = null;  // shared cubesLeft for search
+
+        // ── Board helpers ────────────────────────────────────────────
+
+        function isValidMoveB(b, key) {
+            if (b[key] !== null) return false;
+            var p = key.split(',').map(Number);
+            if (p[0] + p[1] + p[2] === N - 1) return true;
+            return b[(p[0]+1)+','+p[1]+','+p[2]] != null
+                && b[p[0]+','+(p[1]+1)+','+p[2]] != null
+                && b[p[0]+','+p[1]+','+(p[2]+1)] != null;
+        }
+
+        function getValidMovesB(b) {
+            return allPositions.filter(function(k) { return isValidMoveB(b, k); });
+        }
+
+        // Valid empty positions whose 3 supports are all `color` → opponent must fill these
+        function getCupsB(b, color) {
+            var res = [];
+            allPositions.forEach(function(k) {
+                if (b[k] !== null || !isValidMoveB(b, k)) return;
+                var p = k.split(',').map(Number);
+                if (b[(p[0]+1)+','+p[1]+','+p[2]] === color
+                 && b[p[0]+','+(p[1]+1)+','+p[2]] === color
+                 && b[p[0]+','+p[1]+','+(p[2]+1)] === color) res.push(k);
+            });
+            return res;
+        }
+
+        // Non-mutating: how many new cups-for-color would placing at key create?
+        function newCupsB(b, key, color) {
+            var p = key.split(',').map(Number);
+            var kx = p[0], ky = p[1], kz = p[2], count = 0;
+            if (kx > 0 && b[(kx-1)+','+ky+','+kz] === null
+                && b[(kx-1)+','+(ky+1)+','+kz] === color
+                && b[(kx-1)+','+ky+','+(kz+1)] === color) count++;
+            if (ky > 0 && b[kx+','+(ky-1)+','+kz] === null
+                && b[(kx+1)+','+(ky-1)+','+kz] === color
+                && b[kx+','+(ky-1)+','+(kz+1)] === color) count++;
+            if (kz > 0 && b[kx+','+ky+','+(kz-1)] === null
+                && b[(kx+1)+','+ky+','+(kz-1)] === color
+                && b[kx+','+(ky+1)+','+(kz-1)] === color) count++;
+            return count;
+        }
+
+        function structCupsB(b, color) {
+            var c = 0;
+            for (var gy = 0; gy < N; gy++)
+                for (var gx = 0; gx < N; gx++)
+                    for (var gz = 0; gz < N; gz++)
+                        if (gx+gy+gz < N-1
+                         && b[(gx+1)+','+gy+','+gz] === color
+                         && b[gx+','+(gy+1)+','+gz] === color
+                         && b[gx+','+gy+','+(gz+1)] === color) c++;
+            return c;
+        }
+
+        // Positions with exactly 2-of-3 supports = color (one fill away from creating a cup)
+        function threatsB(b, color) {
+            var c = 0;
+            for (var gy = 0; gy < N; gy++)
+                for (var gx = 0; gx < N; gx++)
+                    for (var gz = 0; gz < N; gz++)
+                        if (gx+gy+gz < N-1) {
+                            var n = (b[(gx+1)+','+gy+','+gz]===color?1:0)
+                                  + (b[gx+','+(gy+1)+','+gz]===color?1:0)
+                                  + (b[gx+','+gy+','+(gz+1)]===color?1:0);
+                            if (n === 2) c++;
+                        }
+            return c;
+        }
+
+        // ── Evaluation ──────────────────────────────────────────────
+
+        function evalPeakB(b) {
+            var pp = b[PEAK_KEY]; if (!pp) return 0;
+            var opp = pp === 'yellow' ? 'blue' : 'yellow';
+            if (b['1,0,0'] === opp && b['0,1,0'] === opp && b['0,0,1'] === opp) return 0;
+            return pp === AI_PLAYER ? 500000 : -500000;
+        }
+
+        function evalB(b) {
+            var opp = AI_PLAYER === 'yellow' ? 'blue' : 'yellow';
+            var ai = AI_PLAYER;
+            // Structural cups (hardest won advantage)
+            var sc = (structCupsB(b, ai) - structCupsB(b, opp)) * 500;
+            // Active cup pressure (opponent is currently forced)
+            var ac = (getCupsB(b, ai).length  - getCupsB(b, opp).length) * 250;
+            // Threats: 2-of-3 supports already in place
+            var th = (threatsB(b, ai) - threatsB(b, opp)) * 100;
+            // Peak-support slots: enormous strategic value near end
+            var pk = 0;
+            if (b['1,0,0'] === ai) pk += 350; else if (b['1,0,0'] === opp) pk -= 350;
+            if (b['0,1,0'] === ai) pk += 350; else if (b['0,1,0'] === opp) pk -= 350;
+            if (b['0,0,1'] === ai) pk += 350; else if (b['0,0,1'] === opp) pk -= 350;
+            return sc + ac + th + pk;
+        }
+
+        // ── Move ordering ────────────────────────────────────────────
+
+        function orderMovesX(moves, b, color) {
+            var opp = color === 'yellow' ? 'blue' : 'yellow';
+            return moves.slice().sort(function(a, bk) {
+                if (a === PEAK_KEY) return -1;
+                if (bk === PEAK_KEY) return 1;
+                // Cups created for self outweigh cups blocked from opponent
+                var sa = newCupsB(b, a,  color)*12 + newCupsB(b, a,  opp)*5;
+                var sb = newCupsB(b, bk, color)*12 + newCupsB(b, bk, opp)*5;
+                return sb - sa;
+            });
+        }
+
+        // ── Core search — make/unmake on shared sBoard ───────────────
+        //
+        // KEY DESIGN: mandatory chains are collapsed in a single step (all moves applied
+        // at once, no depth decrement). Only genuine free-move decisions cost depth.
+        // This means a depth-7 search sees 14+ half-moves ahead when chains are long.
+
+        function extremeMinimax(mandatory, player, depth, alpha, beta) {
+
+            // ── Collapse forced chain (free of charge) ──
+            if (mandatory.length > 0) {
+                if (mandatory.indexOf(PEAK_KEY) > -1) {
+                    sBoard[PEAK_KEY] = player;
+                    var s = evalPeakB(sBoard);
+                    sBoard[PEAK_KEY] = null;
+                    return s;
+                }
+                for (var mi = 0; mi < mandatory.length; mi++) { sBoard[mandatory[mi]] = player; sCL[player]--; }
+                var s = extremeMinimax([], player, depth, alpha, beta); // same depth!
+                for (var mi = 0; mi < mandatory.length; mi++) { sBoard[mandatory[mi]] = null; sCL[player]++; }
+                return s;
+            }
+
+            if (sBoard[PEAK_KEY] !== null) return evalPeakB(sBoard);
+            if (depth <= 0) return evalB(sBoard);
+
+            // If this player has no cubes, skip to opponent
+            if (sCL[player] === 0) {
+                var skipOpp = player === 'yellow' ? 'blue' : 'yellow';
+                if (sCL[skipOpp] === 0) return evalB(sBoard);
+                return extremeMinimax([], skipOpp, depth, alpha, beta);
+            }
+
+            var moves = getValidMovesB(sBoard);
+            if (!moves.length) return evalB(sBoard);
+
+            var opp = player === 'yellow' ? 'blue' : 'yellow';
+            var isMax = player === AI_PLAYER;
+            var best = isMax ? -Infinity : Infinity;
+            var ordered = orderMovesX(moves, sBoard, player);
+
+            for (var i = 0; i < ordered.length; i++) {
+                var k = ordered[i];
+                sBoard[k] = player; sCL[player]--;
+
+                var score;
+                if (k === PEAK_KEY) {
+                    score = evalPeakB(sBoard);
+                } else {
+                    var newMand = getCupsB(sBoard, player); // cups AI just created → opp must fill
+                    score = extremeMinimax(newMand, opp, depth - 1, alpha, beta);
+                }
+
+                sBoard[k] = null; sCL[player]++;
+
+                if (isMax) { if (score > best) best = score; if (best > alpha) alpha = best; }
+                else        { if (score < best) best = score; if (best < beta)  beta  = best; }
+                if (beta <= alpha) break;
+            }
+            return best;
+        }
+
+        // ── Top-level decision ───────────────────────────────────────
+
+        function extremePickMove() {
+            if (mandatoryTargets.length > 0) {
+                if (mandatoryTargets.indexOf(PEAK_KEY) > -1) return PEAK_KEY;
+                return mandatoryTargets[0]; // all must be played; order doesn't affect outcome
+            }
+
+            var moves = getValidMovesB(board);
+            if (!moves.length) return null;
+            if (moves.length === 1) return moves[0];
+
+            // Instant win: take the peak unless all 3 supports are opponent's (draw)
+            if (board[PEAK_KEY] === null && isValidMoveB(board, PEAK_KEY)) {
+                var o0 = AI_PLAYER === 'yellow' ? 'blue' : 'yellow';
+                if (!(board['1,0,0']===o0 && board['0,1,0']===o0 && board['0,0,1']===o0)) return PEAK_KEY;
+            }
+
+            // Init shared search board from real game state (one copy, never repeated)
+            sBoard = Object.assign({}, board);
+            sCL = { yellow: cubesLeft.yellow, blue: cubesLeft.blue };
+
+            var opp = AI_PLAYER === 'yellow' ? 'blue' : 'yellow';
+            var ordered = orderMovesX(moves, sBoard, AI_PLAYER);
+            var bestKey = ordered[0], bestScore = -Infinity, topAlpha = -Infinity;
+
+            for (var i = 0; i < ordered.length; i++) {
+                var k = ordered[i];
+                sBoard[k] = AI_PLAYER; sCL[AI_PLAYER]--;
+
+                var score;
+                if (k === PEAK_KEY) {
+                    score = evalPeakB(sBoard);
+                } else {
+                    var newMand = getCupsB(sBoard, AI_PLAYER);
+                    score = extremeMinimax(newMand, opp, EXTREME_DEPTH - 1, topAlpha, Infinity);
+                }
+
+                sBoard[k] = null; sCL[AI_PLAYER]++;
+
+                if (score > bestScore) { bestScore = score; bestKey = k; }
+                if (bestScore > topAlpha) topAlpha = bestScore;
+                if (bestScore >= 500000) break; // forced win found, no need to search further
+            }
+            return bestKey;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           RAYCASTING
+           ═══════════════════════════════════════════════════════════ */
+        var raycaster = new THREE.Raycaster();
+        var mouse = new THREE.Vector2();
+        var isDragging = false;
+
+        function getVisibleGhosts() {
+            var arr = [];
+            allPositions.forEach(function (k) {
+                if (meshMap[k].ghost.visible) arr.push(meshMap[k].ghost);
+            });
+            return arr;
+        }
+
+        renderer.domElement.addEventListener('mousemove', function (e) {
+            if (isMenuOpen) return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            var hits = raycaster.intersectObjects(getVisibleGhosts());
+
+            if (hoverKey && meshMap[hoverKey]) {
+                var wasMandatory = mandatoryTargets.indexOf(hoverKey) > -1;
+                meshMap[hoverKey].ghost.material = wasMandatory ? matGhostMandatory : matGhost;
+            }
+            
+            hoverKey = null;
+            renderer.domElement.style.cursor = 'default';
+
+            if (hits.length > 0 && !gameOver) {
+                var k = hits[0].object.userData.posKey;
+                if (mandatoryTargets.length > 0) {
+                    if (mandatoryTargets.indexOf(k) > -1) {
+                        hoverKey = k;
+                        meshMap[k].ghost.material = currentPlayer === 'yellow' ? matHoverY : matHoverB;
+                        renderer.domElement.style.cursor = 'pointer';
+                    }
+                } else if (isValidMove(k)) {
+                    hoverKey = k;
+                    meshMap[k].ghost.material = currentPlayer === 'yellow' ? matHoverY : matHoverB;
+                    renderer.domElement.style.cursor = 'pointer';
+                }
+            }
+        });
+
+        renderer.domElement.addEventListener('click', function () {
+            if (gameOver || isDragging || isMenuOpen) return;
+            if (gameMode === 'ai' && currentPlayer === AI_PLAYER) return;
+            if (gameMode === 'online' && currentPlayer !== myColor) return;
+            raycaster.setFromCamera(mouse, camera);
+            var hits = raycaster.intersectObjects(getVisibleGhosts());
+            if (hits.length > 0) {
+                var k = hits[0].object.userData.posKey;
+                placeCube(k);
+            }
+        });
+
+        /* ═══════════════════════════════════════════════════════════
+           ORBIT CAMERA
+           ═══════════════════════════════════════════════════════════ */
+        var FRONT_THETA = Math.PI * 0.5;
+        var FRONT_PHI   = Math.PI * 0.38;
+        var FRONT_R     = 10;
+
+        var orbit = { theta: FRONT_THETA, phi: FRONT_PHI, radius: FRONT_R };
+        var camTarget = new THREE.Vector3(0, 0.2, 0);
+        var dragDist = 0;
+        var prevMouse = { x: 0, y: 0 };
+
+        function syncCamera() {
+            var sp = Math.sin(orbit.phi);
+            camera.position.set(
+                camTarget.x + orbit.radius * sp * Math.cos(orbit.theta),
+                camTarget.y + orbit.radius * Math.cos(orbit.phi),
+                camTarget.z + orbit.radius * sp * Math.sin(orbit.theta)
+            );
+            camera.lookAt(camTarget);
+        }
+        syncCamera();
+
+        function goFrontView() {
+            var s = { t: orbit.theta, p: orbit.phi, r: orbit.radius };
+            var dt = FRONT_THETA - s.t;
+            dt = ((dt + Math.PI) % (2 * Math.PI)) - Math.PI;
+            var dur = 600, t0 = performance.now();
+            (function step(now) {
+                var u = Math.min((now - t0) / dur, 1);
+                var e = u < 0.5 ? 2*u*u : 1 - Math.pow(-2*u+2,2)/2;
+                orbit.theta  = s.t + dt * e;
+                orbit.phi    = s.p + (FRONT_PHI - s.p) * e;
+                orbit.radius = s.r + (FRONT_R - s.r) * e;
+                syncCamera();
+                if (u < 1) requestAnimationFrame(step);
+            })(performance.now());
+        }
+
+        function onDragMove(e) {
+            if (isMenuOpen) return;
+            var dx = e.clientX - prevMouse.x;
+            var dy = e.clientY - prevMouse.y;
+            dragDist += Math.abs(dx) + Math.abs(dy);
+            if (dragDist > 5) isDragging = true;
+            orbit.theta -= dx * 0.006;
+            orbit.phi   += dy * 0.006;
+            orbit.phi    = Math.max(0.1, Math.min(Math.PI - 0.1, orbit.phi));
+            prevMouse = { x: e.clientX, y: e.clientY };
+            syncCamera();
+        }
+        renderer.domElement.addEventListener('mousedown', function (e) {
+            if (isMenuOpen) return;
+            isDragging = false; dragDist = 0;
+            prevMouse = { x: e.clientX, y: e.clientY };
+            window.addEventListener('mousemove', onDragMove);
+        });
+        window.addEventListener('mouseup', function () {
+            window.removeEventListener('mousemove', onDragMove);
+            if (isDragging) setTimeout(function () { isDragging = false; }, 60);
+        });
+        renderer.domElement.addEventListener('wheel', function (e) {
+            if (isMenuOpen) return;
+            e.preventDefault();
+            orbit.radius *= 1 + e.deltaY * 0.0012;
+            orbit.radius  = Math.max(4, Math.min(30, orbit.radius));
+            syncCamera();
+        }, { passive: false });
+
+        var touch0 = null, pinchD0 = 0, touchDD = 0;
+        renderer.domElement.addEventListener('touchstart', function (e) {
+            if (isMenuOpen) return;
+            e.preventDefault(); touchDD = 0; isDragging = false;
+            if (e.touches.length === 1) touch0 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            else if (e.touches.length === 2) pinchD0 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        }, { passive: false });
+        renderer.domElement.addEventListener('touchmove', function (e) {
+            if (isMenuOpen) return;
+            e.preventDefault();
+            if (e.touches.length === 1 && touch0) {
+                var t = e.touches[0];
+                var dx = t.clientX - touch0.x, dy = t.clientY - touch0.y;
+                touchDD += Math.abs(dx) + Math.abs(dy);
+                if (touchDD > 10) isDragging = true;
+                orbit.theta -= dx * 0.006;
+                orbit.phi   += dy * 0.006;
+                orbit.phi    = Math.max(0.1, Math.min(Math.PI - 0.1, orbit.phi));
+                touch0 = { x: t.clientX, y: t.clientY };
+                syncCamera();
+            } else if (e.touches.length === 2) {
+                isDragging = true;
+                var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                if (pinchD0 > 0) {
+                    orbit.radius *= pinchD0 / d;
+                    orbit.radius  = Math.max(4, Math.min(30, orbit.radius));
+                    syncCamera();
+                }
+                pinchD0 = d;
+            }
+        }, { passive: false });
+        renderer.domElement.addEventListener('touchend', function (e) {
+            if (isMenuOpen) return;
+            if (!isDragging && touch0 && e.changedTouches.length === 1) {
+                var ct = e.changedTouches[0];
+                mouse.x = (ct.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(ct.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                var hits = raycaster.intersectObjects(getVisibleGhosts());
+                var isMyTurn = !(gameMode === 'ai' && currentPlayer === AI_PLAYER)
+                            && !(gameMode === 'online' && currentPlayer !== myColor);
+                if (hits.length > 0 && !gameOver && isMyTurn) {
+                    placeCube(hits[0].object.userData.posKey);
+                }
+            }
+            touch0 = null; pinchD0 = 0;
+            setTimeout(function () { isDragging = false; }, 60);
+        });
+
+        /* ═══════════════════════════════════════════════════════════
+           BUTTON HANDLERS & RESIZE
+           ═══════════════════════════════════════════════════════════ */
+        document.getElementById('btn-new').addEventListener('click', resetGame);
+        document.getElementById('btn-view').addEventListener('click', goFrontView);
+        // btn-again is handled in the online section below (supports both pvp/ai and online modes)
+
+        // -- MAIN MENU HANDLERS --
+        var elMainMenu    = document.getElementById('main-menu');
+        var elMenuPrimary        = document.getElementById('menu-primary');
+        var elMenuModes          = document.getElementById('menu-modes');
+        var elMenuAiDiff         = document.getElementById('menu-ai-diff');
+        var elMenuGuide          = document.getElementById('menu-guide');
+        var elMenuCredits        = document.getElementById('menu-credits');
+        var elMenuOnline         = document.getElementById('menu-online');
+        var elMenuOnlineWait     = document.getElementById('menu-online-wait');
+        var elMenuOnlineJoin     = document.getElementById('menu-online-join-panel');
+        var allPanels = [
+            elMenuPrimary, elMenuModes, elMenuAiDiff, elMenuGuide, elMenuCredits,
+            elMenuOnline, elMenuOnlineWait, elMenuOnlineJoin
+        ];
+
+        function showPanel(panel) {
+            allPanels.forEach(function(p) { p.classList.remove('active'); });
+            panel.classList.add('active');
+        }
+
+        document.getElementById('btn-menu-play').addEventListener('click', function() {
+            showPanel(elMenuModes);
+        });
+        document.getElementById('btn-menu-guide').addEventListener('click', function() {
+            showPanel(elMenuGuide);
+        });
+        document.getElementById('btn-menu-credits').addEventListener('click', function() {
+            showPanel(elMenuCredits);
+        });
+        document.getElementById('btn-mode-back').addEventListener('click', function() {
+            showPanel(elMenuPrimary);
+        });
+        document.getElementById('btn-mode-ai-menu').addEventListener('click', function() {
+            showPanel(elMenuAiDiff);
+        });
+        document.getElementById('btn-diff-back').addEventListener('click', function() {
+            showPanel(elMenuModes);
+        });
+        document.getElementById('btn-guide-back').addEventListener('click', function() {
+            showPanel(elMenuPrimary);
+        });
+        document.getElementById('btn-credits-back').addEventListener('click', function() {
+            showPanel(elMenuPrimary);
+        });
+
+        function startGame(mode, difficulty) {
+            gameMode = mode;
+            aiDifficulty = difficulty || 'easy';
+            isMenuOpen = false;
+            elMainMenu.classList.add('hidden');
+            document.body.classList.remove('in-menu');
+            resetGame();
+        }
+
+        document.getElementById('btn-mode-pvp').addEventListener('click', function() {
+            startGame('pvp');
+        });
+        document.getElementById('btn-diff-easy').addEventListener('click', function() {
+            startGame('ai', 'easy');
+        });
+        document.getElementById('btn-diff-medium').addEventListener('click', function() {
+            startGame('ai', 'medium');
+        });
+        document.getElementById('btn-diff-hard').addEventListener('click', function() {
+            startGame('ai', 'hard');
+        });
+        document.getElementById('btn-diff-extreme').addEventListener('click', function() {
+            startGame('ai', 'extreme');
+        });
+
+        document.getElementById('btn-game-menu').addEventListener('click', function() {
+            isMenuOpen = true;
+            elMainMenu.classList.remove('hidden');
+            document.body.classList.add('in-menu');
+            showPanel(elMenuPrimary);
+            // Disconnect from online game if returning to menu
+            if (gameMode === 'online' && socket) {
+                socket.disconnect();
+                socket = null;
+                myColor = null;
+            }
+            document.getElementById('online-badge').style.display = 'none';
+        });
+
+        /* ═══════════════════════════════════════════════════════════
+           ONLINE MULTIPLAYER
+           ═══════════════════════════════════════════════════════════ */
+
+        function getOrCreateSocket() {
+            if (socket && socket.connected) return socket;
+            if (typeof io === 'undefined') {
+                alert('Socket.IO not available.\nMake sure you are opening this page from the Node.js server (npm start), not directly as a file.');
+                return null;
+            }
+            socket = io();
+
+            socket.on('room-created', function(data) {
+                document.getElementById('display-room-code').textContent = data.code;
+                showPanel(elMenuOnlineWait);
+            });
+
+            socket.on('game-start', function(data) {
+                myColor = data.color;
+                startOnlineGame();
+            });
+
+            socket.on('join-error', function(msg) {
+                document.getElementById('join-error-msg').textContent = msg;
+            });
+
+            socket.on('opponent-move', function(data) {
+                // Opponent made a move — apply it locally
+                placeCube(data.move);
+            });
+
+            socket.on('opponent-disconnected', function() {
+                if (!gameOver) {
+                    gameOver = true;
+                    document.getElementById('win-title').textContent = 'Opponent Disconnected';
+                    document.getElementById('win-msg').textContent = 'Your opponent left the game.';
+                    document.getElementById('modal').className = '';
+                    setTimeout(function() { document.getElementById('overlay').classList.add('show'); }, 300);
+                }
+            });
+
+            socket.on('disconnect', function() {
+                if (!gameOver && gameMode === 'online') {
+                    gameOver = true;
+                    document.getElementById('win-title').textContent = 'Disconnected';
+                    document.getElementById('win-msg').textContent = 'Lost connection to server.';
+                    document.getElementById('modal').className = '';
+                    setTimeout(function() { document.getElementById('overlay').classList.add('show'); }, 300);
+                }
+            });
+
+            return socket;
+        }
+
+        function startOnlineGame() {
+            gameMode = 'online';
+            isMenuOpen = false;
+            elMainMenu.classList.add('hidden');
+            document.body.classList.remove('in-menu');
+            document.getElementById('online-badge').style.display = 'block';
+            resetGame();
+        }
+
+        // ── Online panel navigation ──────────────────────────────────────────
+
+        document.getElementById('btn-mode-online').addEventListener('click', function() {
+            showPanel(elMenuOnline);
+        });
+        document.getElementById('btn-online-back').addEventListener('click', function() {
+            showPanel(elMenuModes);
+        });
+
+        document.getElementById('btn-online-create').addEventListener('click', function() {
+            var s = getOrCreateSocket();
+            if (!s) return;
+            s.emit('create-room');
+        });
+
+        document.getElementById('btn-online-join-btn').addEventListener('click', function() {
+            document.getElementById('join-error-msg').textContent = '';
+            document.getElementById('room-code-input').value = '';
+            showPanel(elMenuOnlineJoin);
+        });
+
+        document.getElementById('btn-join-back').addEventListener('click', function() {
+            showPanel(elMenuOnline);
+        });
+
+        document.getElementById('btn-wait-cancel').addEventListener('click', function() {
+            if (socket) { socket.disconnect(); socket = null; }
+            showPanel(elMenuOnline);
+        });
+
+        document.getElementById('btn-join-confirm').addEventListener('click', function() {
+            var code = document.getElementById('room-code-input').value.trim().toUpperCase();
+            document.getElementById('join-error-msg').textContent = '';
+            if (code.length !== 5) {
+                document.getElementById('join-error-msg').textContent = 'Please enter a 5-letter code.';
+                return;
+            }
+            var s = getOrCreateSocket();
+            if (!s) return;
+            s.emit('join-room', { code: code });
+        });
+
+        // Allow pressing Enter in the code input to join
+        document.getElementById('room-code-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') document.getElementById('btn-join-confirm').click();
+        });
+
+        // Click the room code display to copy it to clipboard
+        document.getElementById('display-room-code').addEventListener('click', function() {
+            var code = this.textContent;
+            if (code === '-----') return;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(code).then(function() {
+                    var el = document.getElementById('display-room-code');
+                    var orig = el.textContent;
+                    el.textContent = 'COPIED!';
+                    setTimeout(function() { el.textContent = orig; }, 1200);
+                });
+            }
+        });
+
+        // In online mode, "Play Again" returns to the menu (can't replay without re-matching)
+        document.getElementById('btn-again').addEventListener('click', function() {
+            if (gameMode === 'online') {
+                document.getElementById('overlay').classList.remove('show');
+                isMenuOpen = true;
+                elMainMenu.classList.remove('hidden');
+                document.body.classList.add('in-menu');
+                showPanel(elMenuPrimary);
+                if (socket) { socket.disconnect(); socket = null; myColor = null; }
+                document.getElementById('online-badge').style.display = 'none';
+                return;
+            }
+            resetGame();
+        });
+
+        window.addEventListener('resize', function () {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Slowly rotate the camera if the menu is open to give it life
+            if (isMenuOpen) {
+                orbit.theta += 0.001;
+                syncCamera();
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Init
+        updateUI();
+        updateGhosts();
+    })();
+    </script>
+</body>
+</html>
