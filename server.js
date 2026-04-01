@@ -122,7 +122,7 @@ function cleanupRoom(socket) {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
     console.log(`CubiCup server → http://localhost:${PORT}`);
     console.log('Share your LAN IP with your friend to play together.');
