@@ -87,37 +87,39 @@ app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'cubes.html')));
 // GAME LOGIC  (server-authoritative for bot rooms)
 // ══════════════════════════════════════════════════════════════════════════════
 
-const N         = 6;
 const PEAK_KEY  = '0,0,0';
 
-const ALL_POSITIONS = [];
-for (let x = 0; x < N; x++)
-    for (let y = 0; y < N; y++)
-        for (let z = 0; z < N; z++)
-            if (x + y + z <= N - 1)
-                ALL_POSITIONS.push(`${x},${y},${z}`);
+function getAllPositions(n) {
+    const positions = [];
+    for (let x = 0; x < n; x++)
+        for (let y = 0; y < n; y++)
+            for (let z = 0; z < n; z++)
+                if (x + y + z <= n - 1)
+                    positions.push(`${x},${y},${z}`);
+    return positions;
+}
 
-function freshBoard() {
+function freshBoard(n) {
     const b = {};
-    ALL_POSITIONS.forEach(k => (b[k] = null));
+    getAllPositions(n).forEach(k => (b[k] = null));
     return b;
 }
 
-function isValidMoveB(board, key) {
+function isValidMoveB(board, key, n) {
     if (board[key] !== null) return false;
     const [x, y, z] = key.split(',').map(Number);
-    if (x + y + z === N - 1) return true;
+    if (x + y + z === n - 1) return true;
     return board[`${x+1},${y},${z}`] != null
         && board[`${x},${y+1},${z}`] != null
         && board[`${x},${y},${z+1}`] != null;
 }
 
-function getValidMovesB(board) {
-    return ALL_POSITIONS.filter(k => isValidMoveB(board, k));
+function getValidMovesB(board, n) {
+    return getAllPositions(n).filter(k => isValidMoveB(board, k, n));
 }
 
-function getCubicupsB(board, color) {
-    return getValidMovesB(board).filter(k => {
+function getCubicupsB(board, color, n) {
+    return getValidMovesB(board, n).filter(k => {
         const [x, y, z] = k.split(',').map(Number);
         return board[`${x+1},${y},${z}`] === color
             && board[`${x},${y+1},${z}`] === color
@@ -128,57 +130,88 @@ function getCubicupsB(board, color) {
 function getLegalMovesB(state) {
     if (state.terminal) return [];
     if (state.mandatory.length > 0) return [...state.mandatory];
-    return getValidMovesB(state.board);
+    return getValidMovesB(state.board, state.n);
 }
 
 function applyMoveB(state, key) {
-    const { board, currentPlayer, mandatory, cubesLeft, moveHistory, startTime } = state;
-    const opp      = currentPlayer === 'yellow' ? 'blue' : 'yellow';
+    const { board, currentPlayer, mandatory, cubesLeft, moveHistory, startTime, n, allPlayers } = state;
     const newBoard  = { ...board, [key]: currentPlayer };
     const newCubes  = { ...cubesLeft, [currentPlayer]: cubesLeft[currentPlayer] - 1 };
     const newHistory = [...moveHistory, key];
 
     // ── Peak resolution ──────────────────────────────────────────────────────
     if (key === PEAK_KEY) {
-        const suppCount = [`1,0,0`, `0,1,0`, `0,0,1`]
-            .filter(s => newBoard[s] === opp).length;
+        const otherColors = allPlayers.filter(c => c !== currentPlayer);
+        let isDraw = false;
+        for (const oc of otherColors) {
+            const suppCount = [`1,0,0`, `0,1,0`, `0,0,1`]
+                .filter(s => newBoard[s] === oc).length;
+            if (suppCount === 3) { isDraw = true; break; }
+        }
+
         return {
-            board: newBoard, currentPlayer, mandatory: [],
-            cubesLeft: newCubes, terminal: suppCount === 3 ? 'draw' : currentPlayer,
-            moveHistory: newHistory, startTime,
+            ...state,
+            board: newBoard, mandatory: [],
+            cubesLeft: newCubes, terminal: isDraw ? 'draw' : currentPlayer,
+            moveHistory: newHistory,
         };
     }
 
     const wasMandatory = mandatory.length > 0;
     let newMandatory   = [];
-    let newPlayer      = currentPlayer;
+    let nextPlayer     = currentPlayer;
 
     if (wasMandatory) {
         newMandatory = mandatory.filter(k => k !== key);
     } else {
-        newPlayer    = opp;
-        newMandatory = getCubicupsB(newBoard, currentPlayer); // cups just created → opp must fill
+        const idx = allPlayers.indexOf(currentPlayer);
+        nextPlayer = allPlayers[(idx + 1) % allPlayers.length];
+        newMandatory = getCubicupsB(newBoard, currentPlayer, n); 
     }
 
-    // ── Cube exhaustion ──────────────────────────────────────────────────────
-    if (newCubes[newPlayer] === 0) {
-        const other = newPlayer === 'yellow' ? 'blue' : 'yellow';
-        if (newCubes[other] > 0) { newMandatory = []; newPlayer = other; }
+    // Skip players with no cubes
+    let attempts = 0;
+    while (newCubes[nextPlayer] === 0 && attempts < allPlayers.length) {
+        const idx = allPlayers.indexOf(nextPlayer);
+        nextPlayer = allPlayers[(idx + 1) % allPlayers.length];
+        newMandatory = [];
+        attempts++;
+    }
+
+    if (newCubes[nextPlayer] === 0) {
+        return {
+            ...state,
+            board: newBoard, mandatory: [],
+            cubesLeft: newCubes, terminal: 'draw',
+            moveHistory: newHistory,
+        };
     }
 
     return {
-        board: newBoard, currentPlayer: newPlayer, mandatory: newMandatory,
+        ...state,
+        board: newBoard, currentPlayer: nextPlayer, mandatory: newMandatory,
         cubesLeft: newCubes, terminal: null,
-        moveHistory: newHistory, startTime,
+        moveHistory: newHistory,
     };
 }
 
-function freshState() {
+function freshState(n = 6, playerNames = ['yellow', 'blue']) {
+    const totalPos = n * (n + 1) * (n + 2) / 6;
+    const cubesPerPlayer = Math.floor(totalPos / playerNames.length);
+    const remainder = totalPos % playerNames.length;
+
+    const cubesLeft = {};
+    playerNames.forEach((p, i) => {
+        cubesLeft[p] = cubesPerPlayer + (i < remainder ? 1 : 0);
+    });
+
     return {
-        board: freshBoard(),
-        currentPlayer: 'yellow',
+        n,
+        allPlayers: playerNames,
+        board: freshBoard(n),
+        currentPlayer: playerNames[0],
         mandatory: [],
-        cubesLeft: { yellow: 28, blue: 28 },
+        cubesLeft: cubesLeft,
         terminal: null,
         moveHistory: [],
         startTime: Date.now(),
@@ -371,36 +404,40 @@ io.on('connection', socket => {
     });
 
     // ── Create BOT room ──────────────────────────────────────────────────────
-    // opponent: 'human' | 'bot' | 'ai:easy' | 'ai:medium' | 'ai:hard'
-    socket.on('create-bot-room', ({ opponent = 'human', name } = {}) => {
+    // opponent: 'human' | 'bot' | 'ai:easy' | 'ai:medium' | 'ai:hard' | 'death-match'
+    socket.on('create-bot-room', ({ opponent = 'human', name, layers = 6, players = 2 } = {}) => {
         if (name) { socket.isBot = true; socket.botName = name; }
         if (socket.roomCode) cleanupRoom(socket);
 
         const code  = generateCode();
-        const state = freshState();
+        const colors = ["yellow", "blue", "red", "green", "purple", "orange"];
+        const playerNames = colors.slice(0, players);
+        const state = freshState(layers, playerNames);
+        
         const isAi  = (opponent || '').startsWith('ai:');
-        const aiColor = isAi ? 'blue' : null; // AI always plays blue when opponent
+        const aiColor = isAi ? 'blue' : null;
 
         const room = {
             type: 'bot', opponent, players: [socket.id],
-            playerColors: { [socket.id]: 'yellow' },
-            started: isAi, state, spectators: [], aiColor,
+            playerColors: { [socket.id]: playerNames[0] }, // Creator is always first color
+            started: isAi || opponent === 'death-match', 
+            state, spectators: [], aiColor,
+            layers, playerNames
         };
         rooms.set(code, room);
         socket.join(code); socket.roomCode = code;
-        console.log(`[bot-room] room=${code}  opponent=${opponent}`);
+        console.log(`[bot-room] room=${code}  opponent=${opponent} layers=${layers} players=${players}`);
 
         socket.emit('room-created', {
-            code, color: 'yellow', opponent_type: opponent,
-            state: statePayload(state, 'yellow'),
+            code, color: playerNames[0], opponent_type: opponent,
+            state: statePayload(state, playerNames[0]),
         });
 
-        if (isAi) {
+        if (room.started) {
             socket.emit('game-start', {
-                color: 'yellow', opponent_type: opponent,
-                state: statePayload(state, 'yellow'),
+                color: playerNames[0], opponent_type: opponent,
+                state: statePayload(state, playerNames[0]),
             });
-            // Yellow moves first — no AI move needed yet
         }
     });
 
