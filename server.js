@@ -71,10 +71,15 @@
 
 'use strict';
 
-const express = require('express');
-const http    = require('http');
-const { Server } = require('socket.io');
-const path    = require('path');
+const express        = require('express');
+const http           = require('http');
+const { Server }     = require('socket.io');
+const path           = require('path');
+const { spawn }      = require('child_process');
+
+// python3 on Unix/Mac, python on Windows
+const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
+const BOT_RUNNER = path.join(__dirname, 'bot_runner.py');
 
 const app    = express();
 const server = http.createServer(app);
@@ -543,6 +548,49 @@ io.on('connection', socket => {
         const room = rooms.get(code);
         if (room.type !== 'bot') return;
         socket.emit('state', statePayload(room.state, room.playerColors[socket.id]));
+    });
+
+    // ── Python-bot AI move (local game, no room needed) ──────────────────────
+    // Browser sends the full game state; we spawn bot_runner.py and return the move.
+    socket.on('ai-move-request', ({ difficulty = 'greedy', state, player } = {}) => {
+        if (!state) return socket.emit('ai-move-response', { error: 'no state', player });
+
+        const payload = JSON.stringify({ difficulty, state });
+        const py      = spawn(PYTHON, [BOT_RUNNER]);
+        let   out     = '';
+        let   err     = '';
+
+        py.stdout.on('data', d => { out += d; });
+        py.stderr.on('data', d => { err += d; });
+
+        py.on('error', e => {
+            console.error(`[ai-bot]   spawn failed: ${e.message}`);
+            socket.emit('ai-move-response', { error: `Python unavailable: ${e.message}`, player });
+        });
+
+        py.on('close', code => {
+            if (code !== 0 || !out.trim()) {
+                console.error(`[ai-bot]   exit ${code}: ${err.trim()}`);
+                return socket.emit('ai-move-response', { error: err.trim() || 'bot crashed', player });
+            }
+            try {
+                const result = JSON.parse(out.trim());
+                console.log(`[ai-bot]   ${difficulty} → ${result.move || result.error}`);
+                socket.emit('ai-move-response', { ...result, player });
+            } catch (e) {
+                socket.emit('ai-move-response', { error: 'invalid bot output', player });
+            }
+        });
+
+        py.stdin.write(payload);
+        py.stdin.end();
+
+        // Safety timeout — kill bot if it takes > 15 s
+        const timer = setTimeout(() => {
+            py.kill();
+            socket.emit('ai-move-response', { error: 'bot timeout', player });
+        }, 15000);
+        py.on('close', () => clearTimeout(timer));
     });
 
     // ── Disconnect ───────────────────────────────────────────────────────────

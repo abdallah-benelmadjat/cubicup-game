@@ -587,6 +587,9 @@ var controlMode=false; // playing as opponent
 // Online
 var socket=null, myColor=null;
 
+// Python-bot AI (server-side)
+var aiSocket=null, usePythonBots=false;
+
 /* ═══ AUDIO ═══ */
 var audioCtx=null;
 function getAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
@@ -1106,6 +1109,47 @@ function updateGhosts(){
   });
 }
 
+/* ═══ PYTHON BOT BRIDGE ═══ */
+function buildBotState(player){
+  var boardStr={};
+  allPositions.forEach(function(k){boardStr[k]=board[k];});
+  var legal=mandatoryTargets.length>0?mandatoryTargets.slice():getValidMoves();
+  return {
+    n:N,
+    board:boardStr,
+    current_player:player,
+    your_turn:true,
+    mandatory:mandatoryTargets.slice(),
+    cubes_left:Object.assign({},cubesLeft),
+    legal_moves:legal,
+    move_number:allPositions.filter(function(k){return board[k]!==null;}).length,
+    terminal:null
+  };
+}
+
+function setupAiSocket(){
+  if(typeof io==='undefined')return; // Not running from Node.js server
+  if(aiSocket&&aiSocket.connected){usePythonBots=true;return;}
+  try{
+    aiSocket=io();
+    aiSocket.on('connect',function(){
+      usePythonBots=true;
+      toast('Python AI bots active','t-ok',1800);
+    });
+    aiSocket.on('disconnect',function(){usePythonBots=false;});
+    aiSocket.on('connect_error',function(){usePythonBots=false;});
+    aiSocket.on('ai-move-response',function(data){
+      if(gameOver)return;
+      if(data.error||!data.move){
+        // Fall back silently to JS AI
+        if(gameMode==='ai'&&currentPlayer===AI_PLAYER){var k=aiPickMove();if(k)placeCube(k);}
+        return;
+      }
+      if(gameMode==='ai'&&currentPlayer===AI_PLAYER)placeCube(data.move);
+    });
+  }catch(e){usePythonBots=false;}
+}
+
 /* ═══ AI ═══ */
 function aiPickMove(){
   if(aiDifficulty==='guided')return guidedPickMove();
@@ -1285,7 +1329,11 @@ function scheduleAiMove(){
   setTimeout(function(){
     aiScheduled=false;
     if(gameOver||currentPlayer!==AI_PLAYER||gameMode!=='ai')return;
-    var key=aiPickMove();if(key)placeCube(key);
+    if(usePythonBots&&aiSocket&&aiSocket.connected){
+      aiSocket.emit('ai-move-request',{difficulty:aiDifficulty,state:buildBotState(AI_PLAYER)});
+    }else{
+      var key=aiPickMove();if(key)placeCube(key);
+    }
   },delay);
 }
 
@@ -1474,6 +1522,7 @@ function startGame(mode,difficulty,layers){
   gameMode=mode;aiDifficulty=difficulty||'greedy';wildMode=false;
   document.getElementById('ability-bar').classList.remove('wild-active');
   document.body.classList.remove('deathmatch-hud');
+  if(mode==='ai')setupAiSocket();
   isMenuOpen=false;elMainMenu.classList.add('hidden');document.body.classList.remove('in-menu');
   resetGame();
 }
