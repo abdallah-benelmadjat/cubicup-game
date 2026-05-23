@@ -107,8 +107,10 @@ class MCTSBot(BaseBot):
                 return PEAK_STR
 
         # Convert API state to internal state for MCTS tree
+        players = list(state['cubes_left'].keys())
         internal = {
-            'n':              6,
+            'n':              state.get('n', 6),
+            'all_players':    players,
             'board':          {str_to_pos(k): v for k, v in state['board'].items()},
             'current_player': state['current_player'],
             'mandatory':      tuple(str_to_pos(m) for m in state['mandatory']),

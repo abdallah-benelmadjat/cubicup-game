@@ -136,8 +136,10 @@ class GuidedMCTSBot(BaseBot):
             if opp_sup < 3:
                 return PEAK_STR
 
+        players = list(state['cubes_left'].keys())
         internal = {
-            'n':              6,
+            'n':              state.get('n', 6),
+            'all_players':    players,
             'board':          {str_to_pos(k): v for k, v in state['board'].items()},
             'current_player': state['current_player'],
             'mandatory':      tuple(str_to_pos(m) for m in state['mandatory']),
